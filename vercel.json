@@ -3,10 +3,6 @@
   "name": "eco-bem",
   "builds": [
     {
-      "src": "index.html",
-      "use": "@vercel/static"
-    },
-    {
       "src": "server/server.js",
       "use": "@vercel/node"
     }
@@ -17,8 +13,12 @@
       "dest": "server/server.js"
     },
     {
+      "handle": "filesystem"
+    },
+    {
       "src": "/(.*)",
-      "dest": "index.html"
+      "dest": "/index.html"
     }
   ]
 }
+
