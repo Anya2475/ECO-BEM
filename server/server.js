@@ -1,0 +1,224 @@
+const express = require('express');
+const path = require('path');
+const cors = require('cors');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const db = require('./database.js');
+require('dotenv').config();
+
+const JWT_SECRET = process.env.JWT_SECRET || 'eco_bem_super_secret_key_2026';
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Serve frontend static files
+app.use(express.static(path.join(__dirname, '..')));
+
+
+// Offline smart reply engine (from original app logic)
+function offlineSmartReply(q) {
+    const s = q.toLowerCase();
+    if (/أهلا|مرحبا/.test(q)) return '**أهلاً بك يا بطل!** 😊 أنا هنا لمساعدتك. كيف يمكنني مساعدتك في دراستك اليوم؟';
+    if (/pgcd|قاسم|مشترك/.test(s)) return '**PGCD:** لحساب القاسم المشترك الأكبر، نستخدم خوارزمية إقليدس (القسمات المتتالية). اطرح رقماً وسأقوم بحسابه!';
+    if (/مساعدة/.test(q)) return '**مساعدة:** هل تحتاج مساعدة في الرياضيات؟ أم اللغة العربية؟ حدد المادة وسنبدأ المراجعة.';
+    if (/جذر|جذور/.test(q)) return '**حساب الجذور:** $\\sqrt{a}$ هو العدد الموجب الذي مربعه $a$. مثلاً: $\\sqrt{16} = 4$.';
+    if (/معادلة/.test(q)) return '**المعادلات:** لحل $x^2 = a$ إذا كان $a > 0$ فإن: $x = \\sqrt{a}$ أو $x = -\\sqrt{a}$.';
+    if (/شكرا|يعطيك/.test(q)) return '**العفو!** أنا دائماً هنا لخدمتك. بالتوفيق في دراستك.';
+    return `**أنت قلت:** "${q}"\n\nأنا حالياً أعمل في وضع (التشغيل بدون إنترنت - Offline Mode) لأن مفتاح الذكاء الاصطناعي مفقود. \nلذلك أقدم لك ردوداً مبرمجة مسبقاً لمساعدتك في المراجعة! اطرح سؤالاً حول "الجذور" أو "PGCD".`;
+}
+
+app.post('/api/chat', async (req, res) => {
+    try {
+        const { messages } = req.body;
+        
+        if (!messages || !Array.isArray(messages)) {
+            return res.status(400).json({ error: 'Messages array is required' });
+        }
+
+        const systemMessage = messages.find(m => m.role === 'system')?.content || '';
+        const history = messages
+            .filter(m => m.role !== 'system')
+            .map(m => ({
+                role: m.role === 'assistant' ? 'model' : 'user',
+                parts: [{ text: m.content }]
+            }));
+            
+        // Prepend system message to the first user message if history is not empty
+        if (systemMessage && history.length > 0) {
+            history[0].parts[0].text = systemMessage + "\n\n" + history[0].parts[0].text;
+        } else if (systemMessage) {
+            history.push({ role: 'user', parts: [{ text: systemMessage }] });
+        }
+
+        const currentMessageText = history[history.length - 1].parts[0].text;
+
+        // Check for missing API Key -> use offline fallback
+        if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'YOUR_API_KEY_HERE') {
+            return res.json({
+                choices: [
+                    { message: { content: offlineSmartReply(currentMessageText) } }
+                ]
+            });
+        }
+
+        // Online Gemini logic
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        // Using gemini-3.6-flash as requested by the API
+        const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
+        
+        history.pop(); // remove current message for startChat history
+        const chat = model.startChat({
+            history: history
+        });
+
+        let responseText = "";
+        let retries = 5;
+        let apiFailed = false;
+        while (retries > 0) {
+            try {
+                const result = await chat.sendMessage(currentMessageText);
+                responseText = result.response.text();
+                break; // Success
+            } catch (err) {
+                if (err.status === 503 && retries > 1) {
+                    console.log(`503 received, retrying in 3 seconds... (${retries - 1} retries left)`);
+                    await new Promise(r => setTimeout(r, 3000));
+                    retries--;
+                } else {
+                    console.error(`API failed completely: ${err.message}`);
+                    apiFailed = true;
+                    break;
+                }
+            }
+        }
+
+        if (apiFailed) {
+            responseText = offlineSmartReply(currentMessageText) + "\n\n*(ملاحظة: خوادم Google تواجه ضغطاً كبيراً، لذا أجبتك من خلال الوضع السريع)*";
+        }
+
+        res.json({
+            choices: [
+                { message: { content: responseText } }
+            ]
+        });
+
+    } catch (error) {
+        console.error('Error calling AI:', error);
+        res.status(500).json({ error: error.message || 'An error occurred while generating a response.' });
+    }
+});
+
+
+// Authentication Middleware
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (token == null) return res.sendStatus(401);
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403);
+        req.user = user;
+        next();
+    });
+}
+
+
+// ═══════════════ Auth & User API ═══════════════
+
+// Register
+app.post('/api/auth/register', async (req, res) => {
+    try {
+        const { name, email, password } = req.body;
+        if (!name || !email || !password) return res.status(400).json({ error: 'جميع الحقول مطلوبة' });
+
+        const checkEmail = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (checkEmail.rows.length > 0) return res.status(400).json({ error: 'البريد الإلكتروني مسجل مسبقاً' });
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        const result = await db.query(
+            'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id',
+            [name, email, hashedPassword]
+        );
+        const newUserId = result.rows[0].id;
+        
+        const token = jwt.sign({ id: newUserId, email }, JWT_SECRET, { expiresIn: '30d' });
+        
+        res.json({ token, message: 'تم إنشاء الحساب بنجاح', user: { id: newUserId, name, email } });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'حدث خطأ في الخادم' });
+    }
+});
+
+// Login
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (result.rows.length === 0) return res.status(400).json({ error: 'البريد الإلكتروني غير صحيح' });
+        
+        const user = result.rows[0];
+
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) return res.status(400).json({ error: 'كلمة المرور غير صحيحة' });
+
+        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+        
+        // Remove password from response
+        delete user.password;
+        res.json({ token, user, message: 'تم تسجيل الدخول بنجاح' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'حدث خطأ في الخادم' });
+    }
+});
+
+// Get Current User Data
+app.get('/api/user/me', authenticateToken, async (req, res) => {
+    try {
+        const result = await db.query('SELECT id, name, email, xp, rank, streak, avatar_url, dream_goal, plan_type FROM users WHERE id = $1', [req.user.id]);
+        if (result.rows.length === 0) return res.sendStatus(404);
+        res.json(result.rows[0]);
+    } catch(err) {
+        res.status(500).json({ error: 'حدث خطأ في الخادم' });
+    }
+});
+
+// Update User Data
+app.post('/api/user/update', authenticateToken, async (req, res) => {
+    try {
+        const { xp, avatar_url, dream_goal, streak, plan_type } = req.body;
+        
+        // Dynamic update query
+        const updates = [];
+        const values = [];
+        let i = 1;
+        
+        if (xp !== undefined) { updates.push(`xp = ${i++}`); values.push(xp); }
+        if (avatar_url !== undefined) { updates.push(`avatar_url = ${i++}`); values.push(avatar_url); }
+        if (dream_goal !== undefined) { updates.push(`dream_goal = ${i++}`); values.push(dream_goal); }
+        if (streak !== undefined) { updates.push(`streak = ${i++}`); values.push(streak); }
+        if (plan_type !== undefined) { updates.push(`plan_type = ${i++}`); values.push(plan_type); }
+        
+        if (updates.length > 0) {
+            values.push(req.user.id);
+            const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ${i}`;
+            await db.query(query, values);
+        }
+        
+        res.json({ success: true });
+    } catch(err) {
+        console.error(err);
+        res.status(500).json({ error: 'حدث خطأ أثناء التحديث' });
+    }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`ECO-BEM backend server running on port ${PORT}`);
+});
