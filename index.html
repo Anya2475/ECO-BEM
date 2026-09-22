@@ -142,6 +142,9 @@
     <div class="drawer-item" onclick="toggleTheme();toggleDrawer(false)">
       <i class="fa-solid fa-moon"></i><span>تغيير المظهر</span>
     </div>
+    <div class="drawer-item" id="pwa-install-btn" style="display:none;" onclick="installPWA();toggleDrawer(false)">
+      <i class="fa-solid fa-download" style="color:#38bdf8"></i><span style="font-weight:bold;color:#38bdf8;">تثبيت التطبيق</span>
+    </div>
     <div class="drawer-item" onclick="openOverlay('stats2');toggleDrawer(false)">
       <i class="fa-solid fa-chart-line"></i><span>التحليلات البيانية</span>
     </div>
@@ -955,7 +958,7 @@
   <i class="fa-solid fa-circle-info"></i>
   <span id="toast-text"></span>
 </div>
-<script src="./app_v12.js?v=3"></script>
+<script src="./app_v12.js?v=4"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
