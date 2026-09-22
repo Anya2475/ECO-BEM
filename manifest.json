@@ -1,0 +1,21 @@
+{
+  "name": "ECO-BEM",
+  "short_name": "ECO-BEM",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#a855f7",
+  "description": "منصة تعليمية تفاعلية لتحضير شهادة التعليم المتوسط",
+  "icons": [
+    {
+      "src": "./logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,2222 @@
+/* ═══════════════════════════════════════════════════════
+   ECO-BEM v9.0 — Royal Noir + Lime
+   JavaScript Application
+   ═══════════════════════════════════════════════════════ */
+
+'use strict';
+
+/* ═══ Sound Engine ═══ */
+const Sound = {
+  ctx: null,
+  init() {
+    if (!this.ctx) try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+    if (this.ctx?.state === 'suspended') this.ctx.resume();
+  },
+  tone(freq, dur = 0.08, type = 'sine', vol = 0.05, delay = 0) {
+    try {
+      this.init(); if (!this.ctx) return;
+      const t = this.ctx.currentTime + delay;
+      const o = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(this.ctx.destination);
+      o.start(t); o.stop(t + dur + 0.02);
+    } catch(e) {}
+  },
+  tap() { this.tone(520, 0.05, 'sine', 0.03); },
+  ok() { [523,659,784].forEach((f,i) => this.tone(f, 0.25, 'sine', 0.06, i*0.08)); },
+  err() { this.tone(180, 0.22, 'triangle', 0.06); }
+};
+
+/* ═══ Toast ═══ */
+let toastT;
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  document.getElementById('toast-text').textContent = msg;
+  el.className = 'toast on' + (type === 'ok' ? ' ok' : type === 'err' ? ' err' : '');
+  const icon = el.querySelector('i');
+  if (icon) icon.className = 'fa-solid ' + (type === 'ok' ? 'fa-circle-check' : type === 'err' ? 'fa-circle-exclamation' : 'fa-circle-info');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('on'), 2800);
+}
+
+/* ═══ IndexedDB ═══ */
+const DB_NAME = 'eco-bem-db-v9';
+const DB_VERSION = 1;
+const STORES = {
+  attempts: { keyPath: 'id', autoIncrement: true, indexes: [['subject','subject']] },
+  sessions: { keyPath: 'id', autoIncrement: true, indexes: [['type','type']] },
+  stats: { keyPath: 'key' },
+  achievements: { keyPath: 'id', autoIncrement: true },
+  moods: { keyPath: 'id', autoIncrement: true },
+  ai_messages: { keyPath: 'id', autoIncrement: true }
+};
+let db = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    if (db) return resolve(db);
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      Object.entries(STORES).forEach(([name, cfg]) => {
+        if (!d.objectStoreNames.contains(name)) {
+          const s = d.createObjectStore(name, { keyPath: cfg.keyPath, autoIncrement: cfg.autoIncrement });
+          cfg.indexes?.forEach(([idxName, keyPath]) => s.createIndex(idxName, keyPath, { unique: false }));
+        }
+      });
+    };
+    req.onsuccess = () => { db = req.result; resolve(db); };
+    req.onerror = () => reject(req.error);
+  });
+}
+async function dbAdd(store, data) {
+  const d = await openDB();
+  return new Promise((res, rej) => {
+    const tx = d.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).add(data);
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function dbPut(store, data) {
+  const d = await openDB();
+  return new Promise((res, rej) => {
+    const tx = d.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).put(data);
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function dbGet(store, key) {
+  const d = await openDB();
+  return new Promise((res, rej) => {
+    const tx = d.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function dbGetAll(store) {
+  const d = await openDB();
+  return new Promise((res, rej) => {
+    const tx = d.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function dbCount(store) {
+  const d = await openDB();
+  return new Promise((res, rej) => {
+    const tx = d.transaction(store, 'readonly');
+    const req = tx.objectStore(store).count();
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+
+const EcoDB = {
+  async saveAttempt({ subject, year, score, total, type = 'quiz', meta = {} }) {
+    const a = { subject, year, score, total, percent: Math.round((score/total)*100), type, meta, date: new Date().toISOString() };
+    const id = await dbAdd('attempts', a);
+    try { await this.updateStreak(); await this.checkAchievements(); } catch(e) {}
+    return { ...a, id };
+  },
+  async logSession(type, duration, meta = {}) {
+    return dbAdd('sessions', { type, duration, meta, date: new Date().toISOString() });
+  },
+  async getTotalStudyTime() {
+    const s = await dbGetAll('sessions');
+    return s.filter(x => x.type === 'pomodoro' || x.type === 'lesson').reduce((sum, x) => sum + (x.duration || 0), 0);
+  },
+  async getStat(key) { const r = await dbGet('stats', key); return r ? r.value : null; },
+  async setStat(key, value) { return dbPut('stats', { key, value, updatedAt: new Date().toISOString() }); },
+  async addXP(amount) {
+    const cur = (await this.getStat('xp')) || 0;
+    const nxt = cur + amount;
+    await this.setStat('xp', nxt);
+    const lvl = Math.floor(nxt/100) + 1;
+    const oldLvl = Math.floor(cur/100) + 1;
+    if (lvl > oldLvl) {
+      await this.unlockAchievement(`level-${lvl}`, `وصلت للمستوى ${lvl}`, '🎖️');
+      return { level: lvl, leveledUp: true, xp: nxt };
+    }
+    return { level: lvl, leveledUp: false, xp: nxt };
+  },
+  async updateStreak() {
+    const today = new Date().toDateString();
+    const last = await this.getStat('lastActiveDate');
+    const cur = (await this.getStat('streak')) || 0;
+    const best = (await this.getStat('bestStreak')) || 0;
+    if (last === today) return cur;
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    const consec = last === y.toDateString();
+    const nxt = consec ? cur + 1 : 1;
+    await this.setStat('streak', nxt);
+    await this.setStat('lastActiveDate', today);
+    if (nxt > best) await this.setStat('bestStreak', nxt);
+    return nxt;
+  },
+  async getStreak() {
+    return { current: (await this.getStat('streak')) || 0, best: (await this.getStat('bestStreak')) || 0 };
+  },
+  async unlockAchievement(id, title, icon) {
+    const ex = await dbGetAll('achievements');
+    if (ex.some(a => a.id === id)) return null;
+    const ach = { id, title, icon, unlockedAt: new Date().toISOString() };
+    await dbAdd('achievements', ach);
+    setTimeout(() => toast(`${icon} إنجاز: ${title}`, 'ok'), 400);
+    return ach;
+  },
+  async getAchievements() { return dbGetAll('achievements'); },
+  async checkAchievements() {
+    const attempts = await dbGetAll('attempts');
+    const perfect = attempts.filter(a => a.percent === 100).length;
+    if (attempts.length === 1) await this.unlockAchievement('first-quiz', 'أول اختبار!', '🎯');
+    if (attempts.length === 10) await this.unlockAchievement('ten-quizzes', '10 اختبارات!', '🔟');
+    if (perfect === 1) await this.unlockAchievement('first-perfect', 'علامة كاملة!', '💯');
+  },
+  async logMood(mood, note = '') {
+    return dbAdd('moods', { mood, note, date: new Date().toISOString() });
+  },
+  async getDashboard() {
+    const [xp, streak, totalAttempts, totalStudyTime, achievements] = await Promise.all([
+      this.getStat('xp'), this.getStreak(), dbCount('attempts'),
+      this.getTotalStudyTime(), this.getAchievements()
+    ]);
+    const level = Math.floor((xp || 0) / 100) + 1;
+    const nextLevelXP = level * 100;
+    const prevLevelXP = (level - 1) * 100;
+    const levelProgress = Math.round(((xp || 0) - prevLevelXP) / (nextLevelXP - prevLevelXP) * 100);
+    return {
+      xp: xp || 0, level, levelProgress, nextLevelXP, streak,
+      totalAttempts, totalStudyTime,
+      totalStudyHours: Math.round(totalStudyTime / 3600 * 10) / 10,
+      achievements: achievements.length,
+      recentAchievements: achievements.slice(-3).reverse()
+    };
+  }
+};
+
+/* ═══ User Name ═══ */
+const USER_NAME_KEY = 'eco-user-name-v9';
+function getUserName() {
+  try { return localStorage.getItem(USER_NAME_KEY) || 'سيدعلي شطي'; } catch(e) { return 'سيدعلي شطي'; }
+}
+function setUserName(name) {
+  const clean = (name || '').trim().slice(0, 40);
+  if (!clean) return false;
+  try { localStorage.setItem(USER_NAME_KEY, clean); } catch(e) {}
+  renderUserName();
+  return true;
+}
+function renderUserName() {
+  const name = getUserName();
+  const first = name.charAt(0) || 'س';
+  ['drawer-name', 'account-name'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = name;
+  });
+  ['drawer-avatar', 'account-avatar'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = first;
+  });
+  const navAvatar = document.querySelector('.avatar-mini');
+  if (navAvatar) navAvatar.textContent = first;
+  const rank = document.getElementById('my-name-row');
+  if (rank) rank.textContent = `👤 ${name}`;
+}
+function editUserName() {
+  Sound.tap();
+  const cur = getUserName();
+  const nxt = prompt('✏️ أدخل اسمك الكامل:', cur);
+  if (nxt === null) return;
+  if (setUserName(nxt)) { Sound.ok(); toast('✅ تم تحديث الاسم', 'ok'); }
+  else toast('⚠️ اسم غير صالح', 'err');
+}
+function confirmLogout() {
+  if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+    try { localStorage.removeItem('eco-theme'); } catch(e) {}
+    location.reload();
+  }
+}
+
+/* ═══ Math Rendering ═══ */
+function renderMathIn(el, attempt = 0) {
+  if (!el) return;
+  if (!window.renderMathInElement) {
+    if (attempt < 5) setTimeout(() => renderMathIn(el, attempt + 1), 400);
+    return;
+  }
+  try {
+    window.renderMathInElement(el, {
+      delimiters: [
+        { left: '$$', right: '$$', display: true },
+        { left: '$', right: '$', display: false }
+      ],
+      throwOnError: false
+    });
+  } catch(e) { console.warn('[KaTeX]', e); }
+}
+
+/* ═══════════════════════════════════════════════════════
+   LESSON DATA — المقطع الأول الرسمي 2025/2026
+   ═══════════════════════════════════════════════════════ */
+const learningDB = {
+  ar: [
+    {
+      title: 'فهم المنطوق: ذكرى وندم',
+      subtitle: 'المقطع الأول: قضايا اجتماعية',
+      diag: { q: 'ما الهدف الأساسي من الاستماع إلى نصّ منطوق؟', opts: [{ t: 'فهم المعنى العام والأفكار الرئيسية', c: true, ex: 'ممتاز! هذا هو جوهر فهم المنطوق.' }, { t: 'حفظ كل كلمة حرفياً', c: false, ex: 'ليس الحفظ المطلوب، بل الفهم.' }] },
+      concept: '<h3>مفهوم فهم المنطوق</h3><p>فهم المنطوق هو قدرة المتعلم على الاستماع إلى نصّ شفهي، واستخراج أفكاره الرئيسية، وتحليل مضمونه.</p><ul><li>1. الاستماع الشامل</li><li>2. تحديد الفكرة العامة</li><li>3. استخراج الأفكار الأساسية</li></ul>',
+      examples: '<h3>الفكرة العامة والأفكار الأساسية</h3><p><strong>الفكرة العامة:</strong> نصّ سردي يستعرض ذكرى مؤثرة في حياة شخص، ويتناول موضوع الندم.</p><p><strong>القيم المستفادة:</strong> الوفاء بالعهد والوعد، صلة الرحم.</p>',
+      progression: '<h3>التدرّج في تحليل النصّ</h3><p>المرحلة 1: الاستماع الشامل. المرحلة 2: تحديد الشخصيات. المرحلة 3: ترتيب الأحداث. المرحلة 4: استخراج القيم.</p>',
+      exercises: [{ q: 'ما النمط الغالب على نصّ "ذكرى وندم"؟', opts: [{ t: 'النمط السردي', c: true, ex: 'صحيح!' }, { t: 'النمط الحجاجي', c: false, ex: 'النص سردي.' }] }],
+      solutions: '<h3>حلول التمارين</h3><p><strong>التمرين 1:</strong> النمط السردي — لأن النص يعتمد على الأفعال الماضية.</p>',
+      quiz: { q: 'هل فهمت النصّ؟', opts: [{ t: 'نعم', c: true }, { t: 'لا', c: false }] }
+    },
+    {
+      title: 'قواعد اللغة: عطف النسق',
+      subtitle: 'المقطع الأول: قضايا اجتماعية',
+      diag: { q: 'ما الفرق بين الفاء وثم؟', opts: [{ t: 'الفاء للتعقيب، وثم للتراخي', c: true, ex: 'صحيح!' }, { t: 'لا فرق', c: false, ex: 'يوجد فرق زمني.' }] },
+      concept: '<h3>مفهوم عطف النسق</h3><p>هو تابع يتوسط بينه وبين متبوعه أحد حروف العطف.</p><p><strong>حروف العطف:</strong> الواو (الجمع)، الفاء (التعقيب)، ثم (التراخي)، أو (التخيير)، أم (التعيين)، بل (الإضراب).</p>',
+      examples: '<h3>أمثلة</h3><p>1. «دخل المعلمُ فالتلميذُ» (تعقيب بلا مهلة).</p><p>2. «حضر الأميرُ ثم الوزيرُ» (تراخي بمهلة).</p><p>3. «ما نجح سعيدٌ بل خالدٌ» (إضراب).</p>',
+      progression: '<h3>تنبيه هام</h3><p>المعطوف يتبع المعطوف عليه في الإعراب دائماً (رفعاً ونصباً وجراً).</p>',
+      exercises: [{ q: 'أعرب خالد في: حضر المدير وخالدٌ', opts: [{ t: 'معطوف مرفوع', c: true, ex: 'صحيح' }, { t: 'مبتدأ', c: false, ex: 'خطأ' }] }],
+      solutions: '<h3>الحلول</h3><p>خالد: اسم معطوف مرفوع وعلامة رفعه الضمة.</p>',
+      quiz: { q: 'هل فهمت الدرس؟', opts: [{ t: 'نعم', c: true }, { t: 'لا', c: false }] }
+    },
+    {
+      title: 'قواعد اللغة: عطف البيان والبدل',
+      subtitle: 'المقطع الأول: قضايا اجتماعية',
+      diag: { q: 'ما هو البدل في جملة "جاء الفاروق عمر"؟', opts: [{ t: 'عمر', c: true, ex: 'ممتاز!' }, { t: 'الفاروق', c: false, ex: 'الفاروق مبدل منه' }] },
+      concept: '<h3>مفهوم البدل وعطف البيان</h3><p><strong>البدل:</strong> تابع مقصود بالحكم بلا واسطة. أنواعه: بدل مطابق (كل من كل)، بدل جزء من كل، بدل اشتمال.</p><p><strong>عطف البيان:</strong> تابع جامد يوضح متبوعه.</p>',
+      examples: '<h3>أمثلة</h3><p>1. بدل مطابق: «نجح هذا التلميذُ».</p><p>2. بدل جزء من كل: «أكلت الرغيفَ نصفَه».</p><p>3. بدل اشتمال: «أعجبني التلميذُ خلقُه».</p>',
+      progression: '<h3>فائدة إعرابية</h3><p>كل اسم معرف بـ (ال) بعد اسم إشارة يُعرب بدلاً مطابقاً أو عطف بيان.</p>',
+      exercises: [{ q: 'أعرب التلميذ في "نجح هذا التلميذ"', opts: [{ t: 'بدل مرفوع', c: true, ex: 'صحيح' }, { t: 'فاعل', c: false, ex: 'هذا هو الفاعل' }] }],
+      solutions: '<h3>الحلول</h3><p>التلميذ: بدل مطابق أو عطف بيان مرفوع وعلامة رفعه الضمة.</p>',
+      quiz: { q: 'هل فهمت البدل؟', opts: [{ t: 'نعم', c: true }, { t: 'لا', c: false }] }
+    },
+    {
+      title: 'قواعد اللغة: العدد والمعدود',
+      subtitle: 'المقطع الأول: قضايا اجتماعية',
+      diag: { q: 'هل نكتب "ثلاثة رجال" أم "ثلاث رجال"؟', opts: [{ t: 'ثلاثة رجال', c: true, ex: 'ممتاز! يخالف.' }, { t: 'ثلاث رجال', c: false, ex: 'خطأ، لأن العدد من 3 لـ 9 يخالف.' }] },
+      concept: '<h3>قواعد العدد والمعدود</h3><p>1 و 2 يطابقان. من 3 إلى 9 تخالف. الـ 10 يخالف مفرداً ويطابق مركباً. العقود (20، 30) لا تتغير.</p>',
+      examples: '<h3>أمثلة</h3><p>«اشتريت ثلاثةَ أقلامٍ وخمسَ كراساتٍ بـ عشرين ديناراً».</p>',
+      progression: '<h3>تنبيه</h3><p>لمعرفة التذكير والتأنيث في المعدود الجمع، نعود لمفرده (كراسات -> كراس: مذكر، إذن نكتب خمس بالتاء أم بدون تاء؟ خمس بدون تاء).</p>',
+      exercises: [{ q: 'اكتب الرقم بالحروف: 5 قصص', opts: [{ t: 'خمسُ قصصٍ', c: true, ex: 'صحيح' }, { t: 'خمسةُ قصصٍ', c: false, ex: 'قصة مؤنث إذن خمس مذكر' }] }],
+      solutions: '<h3>الحلول</h3><p>خمسُ قصصٍ، لأن قصة مؤنث فالرقم يجب أن يكون مذكراً يخالف.</p>',
+      quiz: { q: 'واضحة؟', opts: [{ t: 'نعم', c: true }, { t: 'لا', c: false }] }
+    },
+    {
+      title: 'البلاغة: الاستعارة',
+      subtitle: 'المقطع الأول: قضايا اجتماعية',
+      diag: { q: 'زأر الجندي في المعركة.. ما نوع الصورة؟', opts: [{ t: 'استعارة مكنية', c: true, ex: 'صحيح' }, { t: 'تشبيه', c: false, ex: 'لا توجد أداة' }] },
+      concept: '<h3>مفهوم الاستعارة</h3><p><strong>الاستعارة:</strong> تشبيه بليغ حذف أحد طرفيه.</p><p><strong>المكنية:</strong> حذف المشبه به وبقيت صفة منه.</p><p><strong>التصريحية:</strong> صرح بالمشبه به وحذف المشبه.</p>',
+      examples: '<h3>أمثلة</h3><p>1. مكنية: ضحك الصبحُ (شبه الصبح بإنسان).</p><p>2. تصريحية: رأيت أسداً يحمل السلاح (شبه الجندي بالأسد وصرح بالأسد).</p>',
+      progression: '<h3>تنبيه</h3><p>أثرها البلاغي: تجسيد المعنى وتقويته وإعطاؤه جمالية.</p>',
+      exercises: [{ q: 'افترسنا العدو في المعركة', opts: [{ t: 'مكنية', c: true, ex: 'صحيح' }, { t: 'تصريحية', c: false, ex: 'خطأ' }] }],
+      solutions: '<h3>الحلول</h3><p>استعارة مكنية، شبهنا أنفسنا بالأسود التي تفترس.</p>',
+      quiz: { q: 'مفهومة؟', opts: [{ t: 'نعم', c: true }, { t: 'لا', c: false }] }
+    }
+  ],
+  math: [
+    {
+      title: 'قواسم عدد طبيعي والـ PGCD',
+      subtitle: 'المقطع الأول: الأعداد الطبيعية',
+      diag: { q: 'ما هو أكبر قاسم مشترك بين 12 و 18؟', opts: [{ t: '6', c: true, ex: 'ممتاز!' }, { t: '3', c: false, ex: 'يوجد قاسم أكبر' }] },
+      concept: '<h3>الـ PGCD</h3><p>هو أكبر قاسم لعددين. نستخدم خوارزمية إقليدس (القسمات المتتالية) لإيجاده بسرعة. الباقي غير المعدوم الأخير هو الـ PGCD.</p>',
+      examples: '<h3>مثال</h3><p>PGCD(156, 132)</p><p>156 = 132 × 1 + 24</p><p>132 = 24 × 5 + 12</p><p>24 = 12 × 2 + 0</p><p>إذن PGCD هو 12.</p>',
+      progression: '<h3>تنبيه</h3><p>دائماً استعمل القسمة بدل الطرح لأنها أسرع.</p>',
+      exercises: [{ q: 'احسب PGCD(14, 21)', opts: [{ t: '7', c: true, ex: 'صحيح!' }, { t: '1', c: false, ex: 'خطأ' }] }],
+      solutions: '<h3>الحلول</h3><p>7 هو القاسم الأكبر.</p>',
+      quiz: { q: 'هل فهمت؟', opts: [{ t: 'نعم', c: true }, { t: 'لا', c: false }] }
+    },
+    {
+      title: 'العددان الأوليان والكسور المختزلة',
+      subtitle: 'المقطع الأول: الأعداد الطبيعية',
+      diag: { q: 'متى نقول أن عددين أوليان فيما بينهما؟', opts: [{ t: 'إذا كان PGCD = 1', c: true, ex: 'ممتاز!' }, { t: 'إذا كانا فرديين', c: false, ex: 'خطأ' }] },
+      concept: '<h3>الكسر غير القابل للاختزال</h3><p>لاختزال أي كسر دفعة واحدة، نحسب PGCD البسط والمقام ثم نقسمهما عليه.</p>',
+      examples: '<h3>مثال</h3><p>اختزل 132 / 156. وجدنا الـ PGCD = 12. إذن نقسمهما على 12 فنجد 11 / 13.</p>',
+      progression: '<h3>تنبيه</h3><p>العددان الأوليان فيما بينهما قاسمهما المشترك الأكبر هو 1.</p>',
+      exercises: [{ q: 'هل 14 و 15 أوليان فيما بينهما؟', opts: [{ t: 'نعم', c: true, ex: 'صحيح' }, { t: 'لا', c: false, ex: 'خطأ' }] }],
+      solutions: '<h3>الحلول</h3><p>نعم، لأنه لا يوجد قاسم مشترك بينهما سوى 1.</p>',
+      quiz: { q: 'فهمت؟', opts: [{ t: 'نعم', c: true }, { t: 'لا', c: false }] }
+    },
+    {
+      title: 'الجذور التربيعية',
+      subtitle: 'المقطع الأول: الحساب على الجذور',
+      diag: { q: 'كم يساوي جذر 64؟', opts: [{ t: '8', c: true, ex: 'ممتاز' }, { t: '32', c: false, ex: 'هذا النصف وليس الجذر' }] },
+      concept: '<h3>مفهوم الجذر</h3><p>الجذر التربيعي لعدد موجب a هو العدد الذي مربعه a. ولا يوجد جذر لعدد سالب.</p><p>المعادلة x² = a : إذا a>0 هناك حلان متعاكسان، إذا a=0 حل وحيد صفر، إذا a<0 لا يوجد حل.</p>',
+      examples: '<h3>مثال</h3><p>x² = 16. حلولها: x = 4 و x = -4.</p>',
+      progression: '<h3>انتبه</h3><p>جذر 16 هو 4 فقط، ولكن المعادلة المربعة لها حلان!</p>',
+      exercises: [{ q: 'حل x² = -5', opts: [{ t: 'لا يوجد حل', c: true, ex: 'ممتاز' }, { t: '5 و -5', c: false, ex: 'خطأ' }] }],
+      solutions: '<h3>الحلول</h3><p>لا يوجد حل حقيقي لأن العدد سالب.</p>',
+      quiz: { q: 'فهمت؟', opts: [{ t: 'نعم', c: true }, { t: 'لا', c: false }] }
+    },
+    {
+      title: 'العمليات على الجذور وتبسيطها',
+      subtitle: 'المقطع الأول: الحساب على الجذور',
+      diag: { q: 'هل جذر(9+16) يساوي جذر9 + جذر16 ؟', opts: [{ t: 'لا', c: true, ex: 'ممتاز! لا يوزع على الجمع.' }, { t: 'نعم', c: false, ex: 'احذر من هذا الفخ!' }] },
+      concept: '<h3>العمليات</h3><p>الضرب والقسمة مسموح توزيعهما، أما الجمع والطرح فلا!</p><p><strong>التبسيط:</strong> للتبسيط نبحث عن أكبر مربع يقسم العدد. المربعات: 4، 9، 16، 25...</p>',
+      examples: '<h3>مثال</h3><p>بسط: جذر 50. جذر 50 = جذر (25 × 2) = 5 جذر 2.</p>',
+      progression: '<h3>تنبيه</h3><p>لجمع الجذور يجب أن تكون متشابهة: 2 جذر3 + 4 جذر3 = 6 جذر3.</p>',
+      exercises: [{ q: 'بسط جذر 12', opts: [{ t: '2 جذر 3', c: true, ex: 'ممتاز' }, { t: '3 جذر 2', c: false, ex: 'خطأ' }] }],
+      solutions: '<h3>الحلول</h3><p>جذر 12 = جذر(4 × 3) = 2 جذر 3.</p>',
+      quiz: { q: 'فهمت؟', opts: [{ t: 'نعم', c: true }, { t: 'لا', c: false }] }
+    },
+    {
+      title: 'تنطيق مقام نسبة',
+      subtitle: 'المقطع الأول: الحساب على الجذور',
+      diag: { q: 'كيف ننطق الكسر الذي مقامه جذر 3؟', opts: [{ t: 'نضرب بسطه ومقامه في جذر 3', c: true, ex: 'ممتاز!' }, { t: 'نحذف الجذر مباشرة', c: false, ex: 'خطأ' }] },
+      concept: '<h3>مفهوم التنطيق</h3><p>هو التخلص من الجذر في المقام بجعله عدداً ناطقاً. نضرب البسط والمقام في نفس الجذر الموجود في المقام.</p>',
+      examples: '<h3>مثال</h3><p>5 / جذر 2. نضرب البسط والمقام في جذر 2 فيصبح: 5 جذر 2 / 2.</p>',
+      progression: '<h3>تنبيه</h3><p>إذا كان في البسط زائد أو ناقص (مثلاً 2+جذر3) يجب استعمال الأقواس عند الضرب!</p>',
+      exercises: [{ q: 'ما هو ناتج تنطيق 1 / جذر 5', opts: [{ t: 'جذر 5 / 5', c: true, ex: 'صحيح' }, { t: '1 / 5', c: false, ex: 'خطأ' }] }],
+      solutions: '<h3>الحلول</h3><p>نضرب في جذر 5 فتصبح جذر 5 في البسط و 5 في المقام.</p>',
+      quiz: { q: 'هل تتقنها؟', opts: [{ t: 'نعم', c: true }, { t: 'لا', c: false }] }
+    }
+  ]
+};;
+
+const AITeacher = {
+  history: [
+    { role: "system", content: "أنت معلم ذكي ومرح مخصص لمساعدة طلاب شهادة التعليم المتوسط (BEM) في الجزائر. اسمك 'المعلم الذكي'." }
+  ],
+  renderMarkdown(text) {
+    let html = String(text)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      
+    // Code blocks
+    html = html.replace(/```([\s\S]+?)```/g, '<pre style="background:var(--surface);padding:10px;border-radius:8px;overflow-x:auto;text-align:left;direction:ltr"><code>$1</code></pre>');
+    html = html.replace(/`(.+?)`/g, '<code style="background:var(--surface);padding:2px 6px;border-radius:4px;color:#10b981">$1</code>');
+    
+    // Headers
+    html = html.replace(/^### (.*?)$/gm, '<h3 style="color:#10b981;margin-top:15px;margin-bottom:5px">$1</h3>');
+    html = html.replace(/^## (.*?)$/gm, '<h2 style="color:#10b981;margin-top:15px;margin-bottom:5px">$1</h2>');
+    html = html.replace(/^# (.*?)$/gm, '<h1 style="color:#10b981;margin-top:15px;margin-bottom:5px">$1</h1>');
+    
+    // Bold, Italic, Horizontal Rule
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    html = html.replace(/^---$/gm, '<hr style="border:none;border-top:1px solid rgba(16,185,129,0.3);margin:15px 0">');
+    
+    // Links
+    html = html.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#10b981;text-decoration:underline">$1</a>');
+    
+    // Lists
+    html = html.replace(/^[\*\-] (.*?)$/gm, '<li style="margin-right:20px;list-style-type:disc">$1</li>');
+    
+    // Newlines to <br>
+    html = html.replace(/\n/g, '<br>');
+    
+    return html;
+  },
+  async send(text) {
+    if (!text?.trim()) return;
+    const list = document.getElementById('chat');
+    if (!list) return;
+
+    // Add user message to UI
+    const me = document.createElement('div');
+    me.className = 'bubble me'; me.textContent = text;
+    list.appendChild(me); list.scrollTop = list.scrollHeight;
+
+    // Add typing indicator
+    const ai = document.createElement('div');
+    ai.className = 'bubble ai';
+    ai.innerHTML = '<i class="fa-solid fa-ellipsis fa-fade"></i> يفكر...';
+    ai.style.color = 'var(--text-muted)';
+    list.appendChild(ai); list.scrollTop = list.scrollHeight;
+
+    this.history.push({ role: 'user', content: text });
+
+    let reply = "";
+    
+    let apiKey = localStorage.getItem('gemini_api_key') || 'AQ.Ab8RN6LloMNNz-fZGviiB2svB2EBd338MiuvNyW7NIsKsERJmw';
+    if (!apiKey) {
+        if (text.trim().startsWith('API_KEY:')) {
+            apiKey = text.replace('API_KEY:', '').trim();
+            localStorage.setItem('gemini_api_key', apiKey);
+            reply = "✅ تم حفظ مفتاح API بنجاح! يمكنك الآن سؤالي عن أي درس أو سؤال في المنهج.";
+            this.history.push({ role: 'assistant', content: reply });
+        } else {
+            reply = `عذراً، لكي أعمل كمعلم ذكي حقيقي، يجب ربطي بالذكاء الاصطناعي (Google Gemini).\n\n1. اذهب إلى الرابط التالي واحصل على مفتاح مجاني (API Key):\nhttps://aistudio.google.com/app/apikey\n\n2. انسخ المفتاح، وأرسله لي هنا في رسالة تبدأ بكلمة **API_KEY:**\n\nمثال:\n\`API_KEY: AIzaSyB_...\``;
+        }
+    } else {
+        if (text.trim().startsWith('API_KEY:')) {
+            apiKey = text.replace('API_KEY:', '').trim();
+            localStorage.setItem('gemini_api_key', apiKey);
+            reply = "✅ تم تحديث مفتاح API بنجاح!";
+            this.history.push({ role: 'assistant', content: reply });
+        } else {
+            try {
+                const contents = this.history.filter(m => m.role !== 'system').map(m => ({
+                    role: m.role === 'assistant' ? 'model' : 'user',
+                    parts: [{ text: m.content }]
+                }));
+                const sysMsg = this.history.find(m => m.role === 'system')?.content || '';
+
+                const models = ['gemini-3.7-flash', 'gemini-3.8-flash', 'gemini-3.6-flash'];
+                let success = false;
+                let lastErrorMsg = '';
+
+                for (const model of models) {
+                    try {
+                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                systemInstruction: { parts: [{ text: sysMsg }] },
+                                contents: contents
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            const errData = await response.json();
+                            if (errData.error && errData.error.message.includes('API key not valid')) {
+                                localStorage.removeItem('gemini_api_key');
+                                throw new Error("مفتاح API غير صالح! يرجى التأكد منه وإرساله مجدداً بكلمة API_KEY:");
+                            }
+                            throw new Error(errData.error?.message || 'Network error');
+                        }
+                        
+                        const data = await response.json();
+                        reply = data.candidates[0].content.parts[0].text;
+                        this.history.push({ role: 'assistant', content: reply });
+                        success = true;
+                        break; // Stop trying if successful
+                    } catch (err) {
+                        lastErrorMsg = err.message;
+                        if (lastErrorMsg.includes("مفتاح API غير صالح")) break;
+                        // Otherwise, continue to next model
+                        console.warn(`Model ${model} failed, trying next...`);
+                    }
+                }
+
+                if (!success) {
+                    throw new Error(lastErrorMsg);
+                }
+            } catch (error) {
+                console.error('Gemini Error:', error);
+                reply = `عذراً، حدث خطأ: ${error.message}`;
+            }
+        }
+    }
+
+    ai.style.color = '';
+    ai.innerHTML = this.renderMarkdown(reply);
+    renderMathIn(ai);
+    list.scrollTop = list.scrollHeight;
+
+    try {
+      await dbAdd('ai_messages', {
+        userMessage: text, aiReply: reply, date: new Date().toISOString()
+      });
+    } catch(e) {}
+  }
+};
+
+/* ═══ LMS — Learning Path ═══ */
+let lp = { subj: 'ar', idx: 0, step: 0, score: 0, mistakes: 0 };
+const lpSteps = ['diag', 'concept', 'examples', 'progression', 'exercises', 'solutions', 'result'];
+
+function openLessons(subj) {
+  Sound.tap();
+  switchLesson(subj);
+  go('tab-lessons', 'nav-subs');
+}
+function switchLesson(subj) {
+  Sound.tap();
+  const ar = document.getElementById('sw-ar');
+  const math = document.getElementById('sw-math');
+  const lar = document.getElementById('lessons-ar');
+  const lmath = document.getElementById('lessons-math');
+  if (subj === 'ar') {
+    if (ar) { ar.style.background = '#8dc63f'; ar.style.color = '#08080c'; }
+    if (math) { math.style.background = 'transparent'; math.style.color = 'var(--text-muted)'; }
+    if (lar) lar.style.display = 'block';
+    if (lmath) lmath.style.display = 'none';
+  } else {
+    if (math) { math.style.background = '#8dc63f'; math.style.color = '#08080c'; }
+    if (ar) { ar.style.background = 'transparent'; ar.style.color = 'var(--text-muted)'; }
+    if (lmath) lmath.style.display = 'block';
+    if (lar) lar.style.display = 'none';
+  }
+}
+function renderLessons() {
+  ['ar', 'math'].forEach(subj => {
+    const box = document.getElementById('lessons-' + subj);
+    if (!box) return;
+    box.innerHTML = '';
+    learningDB[subj].forEach((l, i) => {
+      const el = document.createElement('div');
+      el.className = 'lesson';
+      el.onclick = () => openLp(subj, i);
+      el.innerHTML = '<div class="lesson-num">0' + (i + 1) + '</div>' + 
+                     '<div class="lesson-body"><h4>' + l.title + '</h4>' + 
+                     '<p>' + l.subtitle + '</p></div>' + 
+                     '<div class="lesson-go"><i class="fa-solid fa-arrow-left"></i></div>';
+      box.appendChild(el);
+    });
+  });
+}
+
+function openLp(subj, idx) {
+  Sound.tap();
+  lp = { subj, idx, step: 0, score: 0, mistakes: 0 };
+  const header = document.getElementById('lp-header');
+  if (header) header.textContent = learningDB[subj][idx].title;
+  openOverlay('lp');
+  renderLp();
+}
+
+function askTeacherAboutLesson() {
+  const currentTitle = learningDB[lp.subj][lp.idx].title;
+  closeOverlay('lp');
+  openOverlay('teacher');
+  const input = document.getElementById('chat-in');
+  if (input) {
+    input.value = 'أنا أدرس الآن موضوع "' + currentTitle + '". اشرح لي هذا الدرس من فضلك، وأعطني مثالاً ثم تمريناً للتدرب عليه.';
+    setTimeout(sendAIMessage, 500);
+  }
+}
+
+function renderLp() {
+  const key = lpSteps[lp.step];
+  const data = learningDB[lp.subj][lp.idx][key];
+  if (!data) return;
+  const accent = lp.subj === 'ar' ? '#8dc63f' : '#10b981';
+
+  const fill = document.getElementById('lp-fill');
+  if (fill) {
+    fill.style.width = ((lp.step / 6) * 100) + '%';
+    fill.style.background = 'linear-gradient(90deg, ' + accent + ', ' + accent + 'dd)';
+  }
+
+  document.querySelectorAll('.lp-step').forEach(s => s.classList.remove('on'));
+  const box = document.getElementById('lp-step-' + key);
+  if (!box) return;
+  box.classList.add('on'); box.innerHTML = '';
+
+  const nextBtn = document.getElementById('lp-next');
+  if (nextBtn) nextBtn.classList.remove('on');
+
+  if (key === 'concept' || key === 'examples' || key === 'progression' || key === 'solutions') {
+    box.innerHTML = `<div class="lp-question"><div class="lp-content">${data}</div></div>`;
+    if (nextBtn) {
+      nextBtn.classList.add('on');
+      nextBtn.innerHTML = 'متابعة <i class="fa-solid fa-arrow-left"></i>';
+    }
+    renderMathIn(box);
+  } else if (key === 'result') {
+    const pct = Math.round((lp.score / 3) * 100);
+    let badge, verdict, btn;
+    if (pct >= 80) { badge = 'great'; verdict = 'مستوى إتقان ممتاز!'; btn = 'إنهاء'; Sound.ok(); }
+    else if (pct >= 50) { badge = 'ok'; verdict = 'إتقان متوسط — راجع الدرس'; btn = 'إنهاء'; }
+    else { badge = 'poor'; verdict = 'لم تصل بعد — أعد الدرس'; btn = 'إعادة'; Sound.err(); }
+    box.innerHTML = `
+      <div class="result-hero">
+        <div class="result-badge ${badge}">${pct}%</div>
+        <div class="result-title">نتيجة الدرس</div>
+        <div class="result-sub">${verdict}</div>
+        <div class="result-stats">
+          <div class="result-stat ok"><h5>${lp.score}</h5><p>صحيحة</p></div>
+          <div class="result-stat ko"><h5>${lp.mistakes}</h5><p>خاطئة</p></div>
+        </div>
+      </div>
+    `;
+    if (nextBtn) { nextBtn.classList.add('on'); nextBtn.textContent = btn; }
+  } else if (key === 'diag' || key === 'exercises') {
+    const isDiag = key === 'diag';
+    const questions = isDiag ? [data] : data;
+    const q = questions[0];
+    let html = `<div class="lp-question">
+      <div class="lp-kicker" style="color:${accent}">${isDiag ? 'التشخيص' : 'تمارين تطبيقية'}</div>
+      <div class="lp-title">${q.q}</div>`;
+    q.opts.forEach((o, i) => {
+      const ex = (o.ex || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      html += `<button class="opt" onclick="answerLp(this, ${o.c}, '${ex}')">${o.t}</button>`;
+    });
+    html += `<div class="feedback" id="lp-fb"></div></div>`;
+    box.innerHTML = html;
+    renderMathIn(box);
+  }
+}
+async function answerLp(btn, correct, ex) {
+  const box = btn.parentElement;
+  box.querySelectorAll('.opt').forEach(o => {
+    o.onclick = null;
+    if (o !== btn) o.style.opacity = '.5';
+  });
+  const fb = box.querySelector('#lp-fb');
+  if (fb) fb.classList.add('on');
+  if (correct) {
+    Sound.ok(); btn.classList.add('correct'); lp.score++;
+    if (fb) { fb.classList.add('ok'); fb.innerHTML = `✅ ${ex || 'أحسنت!'}`; }
+  } else {
+    Sound.err(); btn.classList.add('wrong'); lp.mistakes++;
+    if (fb) { fb.classList.add('ko'); fb.innerHTML = `❌ ${ex || 'راجع القاعدة.'}`; }
+  }
+  const nextBtn = document.getElementById('lp-next');
+  if (nextBtn) nextBtn.classList.add('on');
+  try {
+    const r = await EcoDB.addXP(correct ? 15 : 3);
+    if (r.leveledUp) toast(`🎖️ مستوى جديد: ${r.level}`, 'ok');
+  } catch(e) {}
+}
+function nextLp() {
+  Sound.tap();
+  if (lp.step === 6) {
+    try {
+      EcoDB.saveAttempt({
+        subject: lp.subj,
+        year: new Date().getFullYear(),
+        score: lp.score,
+        total: 3,
+        type: 'lesson',
+        meta: { lessonIdx: lp.idx, lessonTitle: learningDB[lp.subj][lp.idx].title }
+      });
+    } catch(e) {}
+    closeOverlay('lp');
+    if (lp.score < 2) setTimeout(() => openLp(lp.subj, lp.idx), 400);
+    return;
+  }
+  lp.step++;
+  renderLp();
+}
+
+/* ═══ Archive ═══ */
+const archiveYears = [];
+for (let y = 2026; y >= 2020; y--) archiveYears.push(y);
+let archSubj = 'ar', archYear = 2026;
+
+const archive = {
+  "ar": {
+    "2022": {
+      "title": "دورة جوان 2022 — اللغة العربية",
+      "paper": "<div class=\"exam-section\">\n  <h3>النص:</h3>\n  <p style=\"text-align:justify;line-height:1.8\">اجتاحت وسائل التواصل الاجتماعي عالمنا المعاصر، فأصبحت جزءاً لا يتجزأ من يومياتنا. لقد قرّبت المسافات وجعلت العالم قرية صغيرة، لكنها في المقابل باعدت بين أفراد الأسرة الواحدة.<br><br>إن الإفراط في استخدام هذه الوسائل قد يؤدي إلى العزلة النفسية وتشتت الانتباه. لذا، يجب علينا أن نكون واعين في استخدامها، فنأخذ منها ما ينفعنا في دراستنا وتطوير ذواتنا، ونبتعد عن مضيعات الوقت والجهد.</p>\n  <div class=\"exam-part\" style=\"margin-top:20px\">\n    <h3>الأسئلة:</h3>\n    <h4>الجزء الأول: البناء الفكري (06 نقاط)</h4>\n    <ol>\n      <li>لوسائل التواصل الاجتماعي إيجابيات وسلبيات. اذكر واحدة من كليهما من النص.</li>\n      <li>هات عنواناً مناسباً للنص.</li>\n      <li>هات ضد الكلمتين: الإفراط، العزلة.</li>\n    </ol>\n    <h4>البناء اللغوي والفني (06 نقاط)</h4>\n    <ol>\n      <li>أعرب الكلمات: جزءاً، وسائل.</li>\n      <li>ما النمط الغالب على النص؟ اذكر مؤشراً واحداً.</li>\n      <li>استخرج طباقاً وبين نوعه وأثره في المعنى.</li>\n    </ol>\n    <h4>الجزء الثاني: الوضعية الإدماجية (08 نقاط)</h4>\n    <p>التعليمة: اكتب فقرة (10 إلى 12 سطراً) تنصح فيها زملائك بالاستخدام العقلاني للهواتف الذكية، موظفاً الحجاج ومحترماً علامات الترقيم.</p>\n  </div>\n  \n  <div class=\"exam-solution-box\" style=\"margin-top:20px;padding-top:20px;border-top:1px dashed var(--border)\">\n    <div class=\"student-attempt\" style=\"margin-bottom:15px\">\n      <h4 style=\"margin-bottom:10px;color:#10b981\"><i class=\"fa-solid fa-pen-nib\"></i> مساحة المحاولة:</h4>\n      <textarea id=\"attempt-2022-ar\" placeholder=\"اكتب محاولتك وإجاباتك هنا قبل الاطلاع على التصحيح الرسمي...\" style=\"width:100%;height:150px;background:#ffffff;border:1px solid #10b981;border-radius:var(--r-md);padding:15px;color:#1a1410;font-family:inherit;resize:vertical;font-size:0.95rem\"></textarea>\n      <button class=\"btn btn-mint\" onclick=\"saveAttempt('2022', 'ar')\" style=\"margin-top:10px;width:100%;justify-content:center;padding:12px;font-size:1rem\">\n        <i class=\"fa-solid fa-save\"></i> حفظ المحاولة والمقارنة مع التصحيح\n      </button>\n    </div>\n    <div id=\"solution-2022-ar\" class=\"exam-solution\" style=\"display:none;background:#f0fdf4;color:#166534;padding:20px;border-radius:var(--r-md);margin-top:10px;border:1px solid #bbf7d0\">\n      \n      <h4>التصحيح النموذجي:</h4>\n      <p><strong>البناء الفكري:</strong><br>1- الإيجابيات: تقريب المسافات. السلبيات: المباعدة بين أفراد الأسرة، العزلة النفسية (2ن).<br>2- العنوان: سلاح ذو حدين، أو آثار شبكات التواصل (2ن).</p>\n      <p><strong>البناء اللغوي:</strong><br>1- الإعراب: جزءاً (خبر أصبح منصوب). وسائل (مضاف إليه مجرور) (2ن).<br>2- النمط: تفسيري حجاجي (2ن).<br>3- الطباق: قرّبت ≠ باعدت (طباق إيجاب). أثره: توضيح المعنى وتأكيده بالضد (2ن).</p>\n    </div>\n  \n    </div>\n  </div>\n</div>"
+    },
+    "2023": {
+      "title": "دورة جوان 2023 — اللغة العربية",
+      "paper": "<div class=\"exam-section\">\n  <h3>النص:</h3>\n  <p style=\"text-align:justify;line-height:1.8\">إن التكافل الاجتماعي في أوقات المحن والكوارث ليس مجرد خيار تفرضه الظروف، بل هو ضرورة حتمية تنبع من قيمنا الإسلامية والإنسانية. عندما تضرب النوازل مجتمعاً ما، تظهر المعادن الحقيقية للأفراد، فيهبّ القوي لمساعدة الضعيف، ويجود الغني بماله للفقير.<br><br>لقد أثبت الجزائريون، عبر محطات تاريخية عديدة، أنهم جسد واحد؛ فكم من أزمة خانقة تحولت بفضل التضامن إلى ملحمة تلاحم أذهلت العالم. إن هذا التآزر هو الجدار المنيع الذي تتحطم عليه كل الصعاب، وهو النور الذي يبدد ظلمات اليأس في قلوب المتضررين.</p>\n  <div class=\"exam-part\" style=\"margin-top:20px\">\n    <h3>الأسئلة:</h3>\n    <h4>الجزء الأول: البناء الفكري (06 نقاط)</h4>\n    <ol>\n      <li>هات فكرة عامة مناسبة للنص.</li>\n      <li>كيف يرى الكاتب التكافل الاجتماعي في أوقات المحن؟</li>\n      <li>اشرح الكلمتين الآتيتين: النوازل، التآزر.</li>\n    </ol>\n    <h4>البناء اللغوي والفني (06 نقاط)</h4>\n    <ol>\n      <li>أعرب ما تحته خط في النص (مساعدة، الجزائريون).</li>\n      <li>استخرج من النص عطف نسق وبين معناه.</li>\n      <li>في العبارة \"التآزر هو الجدار المنيع\" صورة بيانية، سمها واشرحها.</li>\n    </ol>\n    <h4>الجزء الثاني: الوضعية الإدماجية (08 نقاط)</h4>\n    <p>السياق: شهدت إحدى المناطق المجاورة كارثة طبيعية (فيضانات/حرائق)، فتأثرت عائلات كثيرة.<br>التعليمة: اكتب نصاً من 12 سطراً تسرد فيه وقائع الهبة التضامنية التي شاركت فيها، وتصف شعورك، موظفاً استعارة ومحترماً علامات الوقف.</p>\n  </div>\n  \n  <div class=\"exam-solution-box\" style=\"margin-top:20px;padding-top:20px;border-top:1px dashed var(--border)\">\n    <div class=\"student-attempt\" style=\"margin-bottom:15px\">\n      <h4 style=\"margin-bottom:10px;color:#10b981\"><i class=\"fa-solid fa-pen-nib\"></i> مساحة المحاولة:</h4>\n      <textarea id=\"attempt-2023-ar\" placeholder=\"اكتب محاولتك وإجاباتك هنا قبل الاطلاع على التصحيح الرسمي...\" style=\"width:100%;height:150px;background:#ffffff;border:1px solid #10b981;border-radius:var(--r-md);padding:15px;color:#1a1410;font-family:inherit;resize:vertical;font-size:0.95rem\"></textarea>\n      <button class=\"btn btn-mint\" onclick=\"saveAttempt('2023', 'ar')\" style=\"margin-top:10px;width:100%;justify-content:center;padding:12px;font-size:1rem\">\n        <i class=\"fa-solid fa-save\"></i> حفظ المحاولة والمقارنة مع التصحيح\n      </button>\n    </div>\n    <div id=\"solution-2023-ar\" class=\"exam-solution\" style=\"display:none;background:#f0fdf4;color:#166534;padding:20px;border-radius:var(--r-md);margin-top:10px;border:1px solid #bbf7d0\">\n      \n      <h4>التصحيح النموذجي:</h4>\n      <p><strong>البناء الفكري:</strong><br>1- الفكرة العامة: إبراز أهمية التكافل الاجتماعي في تجاوز المحن وضرب المثال بتلاحم الجزائريين (2ن).<br>2- يراه ضرورة حتمية تنبع من القيم الإسلامية والإنسانية (2ن).<br>3- النوازل: المصائب/الكوارث. التآزر: التضامن/التعاون (2ن).</p>\n      <p><strong>البناء اللغوي:</strong><br>1- الإعراب: مساعدة (مضاف إليه مجرور). الجزائريون (فاعل مرفوع بالواو لأنه جمع مذكر سالم) (2ن).<br>2- عطف النسق: الواو (الجمع والاشتراك) أو الفاء (الترتيب والتعقيب) (2ن).<br>3- الصورة البيانية: تشبيه بليغ (شبه التآزر بالجدار وحذف الأداة ووجه الشبه) (2ن).</p>\n    </div>\n  \n    </div>\n  </div>\n</div>"
+    },
+    "2025": {
+      "title": "دورة جوان 2025 — اللغة العربية",
+      "paper": "<div class=\"exam-section\">\n  <h3>النص:</h3>\n  <p style=\"text-align:justify;line-height:1.8\">إن حب الوطن غريزة فطرية تسري في عروق الإنسان مجرى الدم. فالوطن ليس مجرد بقعة جغرافية نعيش عليها، بل هو الذاكرة التي تحمل أمجاد الآباء، والمستقبل الذي ننشده لأبنائنا.<br><br>لقد قدم أجدادنا تضحيات جساماً بالدماء والدموع لكي نعيش أحراراً. واليوم، إن واجبنا كشباب متعلم هو الدفاع عن هذا الوطن بالكلمة الصادقة، والعمل المخلص، والنجاح العلمي، لنرفع رايته عالية بين الأمم.</p>\n  <div class=\"exam-part\" style=\"margin-top:20px\">\n    <h3>الأسئلة:</h3>\n    <h4>الجزء الأول: البناء الفكري (06 نقاط)</h4>\n    <ol>\n      <li>بماذا شبّه الكاتب حب الوطن؟</li>\n      <li>كيف يمكن للشباب اليوم الدفاع عن وطنهم؟</li>\n      <li>لخّص مضمون النص في فكرة عامة.</li>\n    </ol>\n    <h4>البناء اللغوي والفني (06 نقاط)</h4>\n    <ol>\n      <li>أعرب ما تحته خط: غريزة، أحراراً.</li>\n      <li>حدد نمط النص الغالب.</li>\n      <li>استخرج سجعاً من الفقرة الثانية.</li>\n    </ol>\n    <h4>الجزء الثاني: الوضعية الإدماجية (08 نقاط)</h4>\n    <p>التعليمة: بمناسبة عيد الاستقلال، طلب منك أستاذك إلقاء كلمة توضح فيها لزملائك أهمية الاجتهاد في الدراسة لخدمة الوطن. اكتب فقرة من 12 سطراً معتمداً النمط التوجيهي.</p>\n  </div>\n  \n  <div class=\"exam-solution-box\" style=\"margin-top:20px;padding-top:20px;border-top:1px dashed var(--border)\">\n    <div class=\"student-attempt\" style=\"margin-bottom:15px\">\n      <h4 style=\"margin-bottom:10px;color:#10b981\"><i class=\"fa-solid fa-pen-nib\"></i> مساحة المحاولة:</h4>\n      <textarea id=\"attempt-2025-ar\" placeholder=\"اكتب محاولتك وإجاباتك هنا قبل الاطلاع على التصحيح الرسمي...\" style=\"width:100%;height:150px;background:#ffffff;border:1px solid #10b981;border-radius:var(--r-md);padding:15px;color:#1a1410;font-family:inherit;resize:vertical;font-size:0.95rem\"></textarea>\n      <button class=\"btn btn-mint\" onclick=\"saveAttempt('2025', 'ar')\" style=\"margin-top:10px;width:100%;justify-content:center;padding:12px;font-size:1rem\">\n        <i class=\"fa-solid fa-save\"></i> حفظ المحاولة والمقارنة مع التصحيح\n      </button>\n    </div>\n    <div id=\"solution-2025-ar\" class=\"exam-solution\" style=\"display:none;background:#f0fdf4;color:#166534;padding:20px;border-radius:var(--r-md);margin-top:10px;border:1px solid #bbf7d0\">\n      \n      <h4>التصحيح النموذجي:</h4>\n      <p><strong>البناء الفكري:</strong><br>1- شبهه بالغريزة الفطرية التي تسري مجرى الدم.<br>2- بالكلمة الصادقة والعمل المخلص والنجاح العلمي.<br>3- الفكرة العامة: بيان الكاتب لقيمة الوطن ودعوة الشباب للمساهمة في رقيه.</p>\n      <p><strong>البناء اللغوي والفني:</strong><br>1- الإعراب: غريزة (خبر إن مرفوع). أحراراً (حال منصوبة).<br>2- نمط النص: وصفي توجيهي.<br>3- السجع: الصادقة، المخلص (تقارب الحروف) أو توافق الفواصل.</p>\n    </div>\n  \n    </div>\n  </div>\n</div>"
+    },
+    "2026": {
+      "title": "دورة 2026 — اللغة العربية (موضوع رسمي)",
+      "paper": "\n<div class=\"exam-section\">\n  <div class=\"exam-part\">\n    <img src=\"./assets/exams/2026/arabic_exam_1.png\" style=\"width:100%; border-radius:8px; margin-bottom:15px; display:block; border: 1px solid var(--border);\" alt=\"صفحة 1\">\n<img src=\"./assets/exams/2026/arabic_exam_2.png\" style=\"width:100%; border-radius:8px; margin-bottom:15px; display:block; border: 1px solid var(--border);\" alt=\"صفحة 2\">\n\n  </div>\n  \n  <div class=\"exam-solution-box\" style=\"margin-top:20px;padding-top:20px;border-top:1px dashed var(--border)\">\n    <div class=\"student-attempt\" style=\"margin-bottom:15px\">\n      <h4 style=\"margin-bottom:10px;color:#10b981\"><i class=\"fa-solid fa-pen-nib\"></i> مساحة المحاولة:</h4>\n      <textarea id=\"attempt-2026-ar\" placeholder=\"اكتب إجابتك هنا قبل الاطلاع على التصحيح النموذجي...\" style=\"width:100%;height:150px;background:#ffffff;border:1px solid #10b981;border-radius:var(--r-md);padding:15px;color:#1a1410;font-family:inherit;resize:vertical;font-size:0.95rem\"></textarea>\n      <button class=\"btn btn-mint\" onclick=\"saveAttempt('2026', 'ar')\" style=\"margin-top:10px;width:100%;justify-content:center;padding:12px;font-size:1rem\">\n        <i class=\"fa-solid fa-save\"></i> حفظ المحاولة والمقارنة مع التصحيح\n      </button>\n    </div>\n    <div id=\"solution-2026-ar\" class=\"exam-solution\" style=\"display:none;background:#f0fdf4;color:#166534;padding:20px;border-radius:var(--r-md);margin-top:10px;border:1px solid #bbf7d0\">\n      <h4>التصحيح النموذجي:</h4>\n      <img src=\"./assets/exams/2026/arabic_sol_1.png\" style=\"width:100%; border-radius:8px; margin-bottom:15px; display:block; border: 1px solid var(--border);\" alt=\"صفحة 1\">\n<img src=\"./assets/exams/2026/arabic_sol_2.png\" style=\"width:100%; border-radius:8px; margin-bottom:15px; display:block; border: 1px solid var(--border);\" alt=\"صفحة 2\">\n<img src=\"./assets/exams/2026/arabic_sol_3.png\" style=\"width:100%; border-radius:8px; margin-bottom:15px; display:block; border: 1px solid var(--border);\" alt=\"صفحة 3\">\n\n    </div>\n  </div>\n</div>\n"
+    }
+  },
+  "math": {
+    "2022": {
+      "title": "دورة جوان 2022 — الرياضيات",
+      "paper": "<div class=\"exam-section\">\n  <div class=\"exam-part\">\n    <h3>الجزء الأول (12 نقطة)</h3>\n    <h4>التمرين الأول (03 نقاط):</h4>\n    <p>أوجد القاسم المشترك الأكبر للعددين $1053$ و $832$. ثم اكتب الكسر $\\frac{832}{1053}$ على شكل كسر غير قابل للاختزال.</p>\n    \n    <h4>التمرين الثاني (03 نقاط):</h4>\n    <p>لتكن العبارة $F = (3x - 5)^2 - 9$.<br>1- انشر ثم بسط العبارة $F$.<br>2- حلل $F$ إلى جداء عاملين.<br>3- حل المعادلة $(3x - 8)(3x - 2) = 0$.</p>\n    \n    <h4>التمرين الثالث (03 نقاط):</h4>\n    <p>إليك المراجراجحة الآتية: $4x - 5 \\leq 2x + 7$.<br>1- حل المتراجحة.<br>2- مثل مجموعة حلولها بيانياً.</p>\n  </div>\n  <div class=\"exam-part\">\n    <h3>الجزء الثاني (08 نقاط): الوضعية الإدماجية</h3>\n    <p>لدهن واجهة عمارة، استأجر مقاول رافعة كهربائية. تعتمد تكلفة الإيجار على عرضين:<br>العرض الأول: $2000 DA$ لليوم الواحد.<br>العرض الثاني: $1000 DA$ لليوم الواحد زائد اشتراك قدره $8000 DA$.</p>\n    <p>استعمل الدوال لحساب ابتداءً من أي عدد من الأيام يصبح العرض الثاني أفضل من العرض الأول.</p>\n  </div>\n  \n  <div class=\"exam-solution-box\" style=\"margin-top:20px;padding-top:20px;border-top:1px dashed var(--border)\">\n    <div class=\"student-attempt\" style=\"margin-bottom:15px\">\n      <h4 style=\"margin-bottom:10px;color:#10b981\"><i class=\"fa-solid fa-pen-nib\"></i> مساحة المحاولة:</h4>\n      <textarea id=\"attempt-2022-math\" placeholder=\"اكتب محاولتك وإجاباتك هنا قبل الاطلاع على التصحيح الرسمي...\" style=\"width:100%;height:150px;background:#ffffff;border:1px solid #10b981;border-radius:var(--r-md);padding:15px;color:#1a1410;font-family:inherit;resize:vertical;font-size:0.95rem\"></textarea>\n      <button class=\"btn btn-mint\" onclick=\"saveAttempt('2022', 'math')\" style=\"margin-top:10px;width:100%;justify-content:center;padding:12px;font-size:1rem\">\n        <i class=\"fa-solid fa-save\"></i> حفظ المحاولة والمقارنة مع التصحيح\n      </button>\n    </div>\n    <div id=\"solution-2022-math\" class=\"exam-solution\" style=\"display:none;background:#f0fdf4;color:#166534;padding:20px;border-radius:var(--r-md);margin-top:10px;border:1px solid #bbf7d0\">\n      \n      <h4>التصحيح النموذجي:</h4>\n      <p><strong>التمرين 1 (3ن):</strong><br>باستعمال القسمات الإقليدية: $PGCD(1053, 832) = 13$.<br>الاختزال: $\\frac{832}{1053} = \\frac{64}{81}$.</p>\n      <p><strong>التمرين 2 (3ن):</strong><br>التحليل: $F = (3x-5)^2 - 3^2 = (3x-5-3)(3x-5+3) = (3x-8)(3x-2)$.</p>\n      <p><strong>الوضعية (8ن):</strong><br>العرض 1: $f(x) = 2000x$<br>العرض 2: $g(x) = 1000x + 8000$<br>لإيجاد متى يكون العرض 2 أفضل: $g(x) < f(x) \\Rightarrow 1000x + 8000 < 2000x \\Rightarrow 1000x > 8000 \\Rightarrow x > 8$.<br>إذن ابتداءً من اليوم التاسع يصبح العرض الثاني أرخص.</p>\n    </div>\n  \n    </div>\n  </div>\n</div>"
+    },
+    "2023": {
+      "title": "دورة جوان 2023 — الرياضيات",
+      "paper": "<div class=\"exam-section\">\n  <div class=\"exam-part\">\n    <h3>الجزء الأول (12 نقطة)</h3>\n    <h4>التمرين الأول (03 نقاط):</h4>\n    <p>ليكن العددان الحقيقيان $A$ و $B$ حيث: $A = \\sqrt{80} + 2\\sqrt{125} - 3\\sqrt{20}$ و $B = \\frac{2 + \\sqrt{2}}{\\sqrt{2}}$.</p>\n    <ol>\n      <li>اكتب العدد $A$ على الشكل $a\\sqrt{5}$ حيث $a$ عدد طبيعي.</li>\n      <li>اكتب العدد $B$ على شكل نسبة مقامها عدد ناطق.</li>\n      <li>بيّن أن: $A \\times (B - 1) = 8\\sqrt{10}$.</li>\n    </ol>\n    \n    <h4>التمرين الثاني (03 نقاط):</h4>\n    <p>لتكن العبارة الجبرية $E$ حيث: $E = (2x - 3)^2 - (2x - 3)(x + 1)$.</p>\n    <ol>\n      <li>انشر وبسط العبارة $E$.</li>\n      <li>حلل العبارة $E$ إلى جداء عاملين من الدرجة الأولى.</li>\n      <li>حل المعادلة: $(2x - 3)(x - 4) = 0$.</li>\n    </ol>\n    \n    <h4>التمرين الثالث (03 نقاط):</h4>\n    <p>$ABC$ مثلث قائم في $A$. النقطة $M \\in [AB]$ والنقطة $N \\in [AC]$ حيث $(MN) \\parallel (BC)$.<br>الأطوال: $AM = 3cm$, $AB = 9cm$, $AN = 4cm$.</p>\n    <ol>\n      <li>احسب الطولين $AC$ و $MN$.</li>\n    </ol>\n    \n    <h4>التمرين الرابع (03 نقاط):</h4>\n    <p>في معلم متعامد ومتجانس، علّم النقط: $A(-1; 2)$، $B(3; -1)$، و $C(4; 6)$.</p>\n    <ol>\n      <li>احسب الطول $AB$.</li>\n      <li>إذا علمت أن $BC = \\sqrt{50}$ و $AC = \\sqrt{41}$، ما نوع المثلث $ABC$؟</li>\n    </ol>\n  </div>\n  <div class=\"exam-part\">\n    <h3>الجزء الثاني (08 نقاط): الوضعية الإدماجية</h3>\n    <p>يملك فلاح قطعة أرض مستطيلة الشكل مساحتها $2400 m^2$ وعرضها يساوي ثلثي ($2/3$) طولها.</p>\n    <p><strong>الجزء 1:</strong> احسب طول وعرض هذه القطعة.</p>\n    <p><strong>الجزء 2:</strong> أراد الفلاح إحاطتها بسياج مع ترك باب عرضه $4m$. ثمن المتر الواحد من السياج هو $150 DA$. احسب كلفة السياج.</p>\n  </div>\n  \n  <div class=\"exam-solution-box\" style=\"margin-top:20px;padding-top:20px;border-top:1px dashed var(--border)\">\n    <div class=\"student-attempt\" style=\"margin-bottom:15px\">\n      <h4 style=\"margin-bottom:10px;color:#10b981\"><i class=\"fa-solid fa-pen-nib\"></i> مساحة المحاولة:</h4>\n      <textarea id=\"attempt-2023-math\" placeholder=\"اكتب محاولتك وإجاباتك هنا قبل الاطلاع على التصحيح الرسمي...\" style=\"width:100%;height:150px;background:#ffffff;border:1px solid #10b981;border-radius:var(--r-md);padding:15px;color:#1a1410;font-family:inherit;resize:vertical;font-size:0.95rem\"></textarea>\n      <button class=\"btn btn-mint\" onclick=\"saveAttempt('2023', 'math')\" style=\"margin-top:10px;width:100%;justify-content:center;padding:12px;font-size:1rem\">\n        <i class=\"fa-solid fa-save\"></i> حفظ المحاولة والمقارنة مع التصحيح\n      </button>\n    </div>\n    <div id=\"solution-2023-math\" class=\"exam-solution\" style=\"display:none;background:#f0fdf4;color:#166534;padding:20px;border-radius:var(--r-md);margin-top:10px;border:1px solid #bbf7d0\">\n      \n      <h4>التصحيح النموذجي:</h4>\n      <p><strong>التمرين 1 (3ن):</strong><br>1- $A = 4\\sqrt{5} + 10\\sqrt{5} - 6\\sqrt{5} = 8\\sqrt{5}$ (1ن).<br>2- $B = \\frac{(2+\\sqrt{2})\\sqrt{2}}{\\sqrt{2}\\times\\sqrt{2}} = \\frac{2\\sqrt{2}+2}{2} = \\sqrt{2}+1$ (1ن).<br>3- الإثبات: $8\\sqrt{5} \\times (\\sqrt{2}+1-1) = 8\\sqrt{5} \\times \\sqrt{2} = 8\\sqrt{10}$ (1ن).</p>\n      <p><strong>التمرين 2 (3ن):</strong><br>1- النشر: $E = 2x^2 - 11x + 12$ (1ن).<br>2- التحليل: $E = (2x-3)(x-4)$ (1ن).<br>3- حل المعادلة: إما $x = 1.5$ أو $x = 4$ (1ن).</p>\n      <p><strong>الوضعية الإدماجية (8ن):</strong><br>1- $L \\times (2/3)L = 2400 \\Rightarrow L^2 = 3600 \\Rightarrow L = 60m$. العرض = $40m$.<br>2- المحيط = $(60+40)\\times 2 = 200m$. طول السياج = $200 - 4 = 196m$.<br>الكلفة = $196 \\times 150 = 29400 DA$.</p>\n    </div>\n  \n    </div>\n  </div>\n</div>"
+    },
+    "2025": {
+      "title": "دورة جوان 2025 — الرياضيات",
+      "paper": "<div class=\"exam-section\">\n  <div class=\"exam-part\">\n    <h3>الجزء الأول (12 نقطة)</h3>\n    <h4>التمرين الأول (03 نقاط):</h4>\n    <p>1- احسب $PGCD(720, 1080)$.<br>2- يملك بائع زهور 720 وردة حمراء و 1080 بيضاء، يريد تشكيل باقات متماثلة بأكبر عدد ممكن. ما هو عدد الباقات؟ وما هو تركيب كل باقة؟</p>\n    \n    <h4>التمرين الثاني (03 نقاط):</h4>\n    <p>حل الجملة الآتية بطريقة التعويض أو الجمع:<br>$x + y = 14$<br>$3x + 5y = 50$</p>\n    \n    <h4>التمرين الثالث (03 نقاط):</h4>\n    <p>إليك الدالة التآلفية $f(x) = 2x - 3$.<br>1- احسب صورة العدد 5.<br>2- ما هو العدد الذي صورته 7؟<br>3- أنشئ التمثيل البياني للدالة.</p>\n  </div>\n  <div class=\"exam-part\">\n    <h3>الجزء الثاني (08 نقاط): الوضعية الإدماجية</h3>\n    <p>يملك عمي أحمد قطعة أرض مثلثة الشكل $ABC$ قائمة في $B$ حيث $AB = 40m$ و $BC = 30m$.<br>أراد تقسيمها مع ابنه بحيث يأخذ الابن الجزء $AMN$ (حيث $M \\in AB$ و $N \\in AC$ و $(MN) \\parallel (BC)$).<br>إذا كان $AM = 10m$، احسب مساحة أرض الابن، ومساحة أرض الأب المتبقية.</p>\n  </div>\n  \n  <div class=\"exam-solution-box\" style=\"margin-top:20px;padding-top:20px;border-top:1px dashed var(--border)\">\n    <div class=\"student-attempt\" style=\"margin-bottom:15px\">\n      <h4 style=\"margin-bottom:10px;color:#10b981\"><i class=\"fa-solid fa-pen-nib\"></i> مساحة المحاولة:</h4>\n      <textarea id=\"attempt-2025-math\" placeholder=\"اكتب محاولتك وإجاباتك هنا قبل الاطلاع على التصحيح الرسمي...\" style=\"width:100%;height:150px;background:#ffffff;border:1px solid #10b981;border-radius:var(--r-md);padding:15px;color:#1a1410;font-family:inherit;resize:vertical;font-size:0.95rem\"></textarea>\n      <button class=\"btn btn-mint\" onclick=\"saveAttempt('2025', 'math')\" style=\"margin-top:10px;width:100%;justify-content:center;padding:12px;font-size:1rem\">\n        <i class=\"fa-solid fa-save\"></i> حفظ المحاولة والمقارنة مع التصحيح\n      </button>\n    </div>\n    <div id=\"solution-2025-math\" class=\"exam-solution\" style=\"display:none;background:#f0fdf4;color:#166534;padding:20px;border-radius:var(--r-md);margin-top:10px;border:1px solid #bbf7d0\">\n      \n      <h4>التصحيح النموذجي:</h4>\n      <p><strong>التمرين 1:</strong><br>$PGCD = 360$.<br>عدد الباقات: 360 باقة.<br>التركيب: $720/360 = 2$ وردة حمراء، $1080/360 = 3$ بيضاء.</p>\n      <p><strong>التمرين 2:</strong><br>بضرب المعادلة الأولى في $-3$: $-3x - 3y = -42$.<br>بالجمع: $2y = 8 \\Rightarrow y = 4$. إذن $x = 10$. الحل هو $(10, 4)$.</p>\n      <p><strong>الوضعية:</strong><br>$MN$ باستخدام طالس: $MN/BC = AM/AB \\Rightarrow MN/30 = 10/40 \\Rightarrow MN = 7.5m$.<br>مساحة الابن: $(10 \\times 7.5)/2 = 37.5 m^2$.<br>مساحة الأب: المساحة الكلية $((40 \\times 30)/2) - 37.5 = 600 - 37.5 = 562.5 m^2$.</p>\n    </div>\n  \n    </div>\n  </div>\n</div>"
+    },
+    "2026": {
+      "title": "دورة 2026 — الرياضيات (موضوع رسمي)",
+      "paper": "\n<div class=\"exam-section\">\n  <div class=\"exam-part\">\n    <img src=\"./assets/exams/2026/math_exam_1.png\" style=\"width:100%; border-radius:8px; margin-bottom:15px; display:block; border: 1px solid var(--border);\" alt=\"صفحة 1\">\n<img src=\"./assets/exams/2026/math_exam_2.png\" style=\"width:100%; border-radius:8px; margin-bottom:15px; display:block; border: 1px solid var(--border);\" alt=\"صفحة 2\">\n\n  </div>\n  \n  <div class=\"exam-solution-box\" style=\"margin-top:20px;padding-top:20px;border-top:1px dashed var(--border)\">\n    <div class=\"student-attempt\" style=\"margin-bottom:15px\">\n      <h4 style=\"margin-bottom:10px;color:#10b981\"><i class=\"fa-solid fa-pen-nib\"></i> مساحة المحاولة:</h4>\n      <textarea id=\"attempt-2026-math\" placeholder=\"اكتب إجابتك هنا قبل الاطلاع على التصحيح النموذجي...\" style=\"width:100%;height:150px;background:#ffffff;border:1px solid #10b981;border-radius:var(--r-md);padding:15px;color:#1a1410;font-family:inherit;resize:vertical;font-size:0.95rem\"></textarea>\n      <button class=\"btn btn-mint\" onclick=\"saveAttempt('2026', 'math')\" style=\"margin-top:10px;width:100%;justify-content:center;padding:12px;font-size:1rem\">\n        <i class=\"fa-solid fa-save\"></i> حفظ المحاولة والمقارنة مع التصحيح\n      </button>\n    </div>\n    <div id=\"solution-2026-math\" class=\"exam-solution\" style=\"display:none;background:#f0fdf4;color:#166534;padding:20px;border-radius:var(--r-md);margin-top:10px;border:1px solid #bbf7d0\">\n      <h4>التصحيح النموذجي:</h4>\n      <img src=\"./assets/exams/2026/math_sol_1.png\" style=\"width:100%; border-radius:8px; margin-bottom:15px; display:block; border: 1px solid var(--border);\" alt=\"صفحة 1\">\n<img src=\"./assets/exams/2026/math_sol_2.png\" style=\"width:100%; border-radius:8px; margin-bottom:15px; display:block; border: 1px solid var(--border);\" alt=\"صفحة 2\">\n<img src=\"./assets/exams/2026/math_sol_3.png\" style=\"width:100%; border-radius:8px; margin-bottom:15px; display:block; border: 1px solid var(--border);\" alt=\"صفحة 3\">\n<img src=\"./assets/exams/2026/math_sol_4.png\" style=\"width:100%; border-radius:8px; margin-bottom:15px; display:block; border: 1px solid var(--border);\" alt=\"صفحة 4\">\n<img src=\"./assets/exams/2026/math_sol_5.png\" style=\"width:100%; border-radius:8px; margin-bottom:15px; display:block; border: 1px solid var(--border);\" alt=\"صفحة 5\">\n\n    </div>\n  </div>\n</div>\n"
+    }
+  }
+};;;;;;;
+
+function renderYears() {
+  const grid = document.getElementById('years');
+  if (!grid) return;
+  grid.innerHTML = '';
+  const store = archive[archSubj] || {};
+  archiveYears.forEach(y => {
+    const has = !!store[y];
+    const el = document.createElement('div');
+    el.className = 'year' + (y === archYear ? ' on' : '');
+    el.innerHTML = `<strong>${y}</strong><small>${has ? 'متاح' : 'قريباً'}</small>`;
+    el.onclick = () => { Sound.tap(); archYear = y; renderYears(); loadExam(); };
+    grid.appendChild(el);
+  });
+}
+function setArchSubj(s, btn) {
+  Sound.tap();
+  archSubj = s;
+  document.querySelectorAll('.chips .chip').forEach(c => c.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  renderYears();
+  loadExam();
+}
+function loadExam() {
+  const data = (archive[archSubj] || {})[archYear];
+  const titleEl = document.getElementById('paper-title');
+  const bodyEl = document.getElementById('paper-body');
+  if (data) {
+    if (titleEl) titleEl.textContent = data.title;
+    if (bodyEl) bodyEl.innerHTML = data.paper;
+    renderMathIn(bodyEl);
+    const savedAttempt = localStorage.getItem(`bem-attempt-${archYear}-${archSubj}`);
+    if (savedAttempt) {
+      const ta = document.getElementById(`attempt-${archYear}-${archSubj}`);
+      const sol = document.getElementById(`solution-${archYear}-${archSubj}`);
+      if (ta && sol) {
+        ta.value = savedAttempt;
+        ta.readOnly = true;
+        ta.style.border = '2px solid #10b981';
+        ta.style.backgroundColor = '#fdfaf3';
+        ta.style.color = '#064e3b';
+        sol.style.display = 'block';
+      }
+    }
+  } else {
+    if (titleEl) titleEl.textContent = `دورة ${archYear}`;
+    if (bodyEl) bodyEl.innerHTML = '<p style="text-align:center;padding:40px;color:#6b5d52">الموضوع قيد التحضير.</p>';
+  }
+}
+
+/* ═══ Dashboard ═══ */
+async function renderDashboard() {
+  try {
+    const d = await EcoDB.getDashboard();
+    const box = document.getElementById('dashboard-content');
+    if (!box) return;
+    box.innerHTML = `
+      <div class="grid-3" style="margin-bottom:24px">
+        <div class="stat-tile">
+          <div class="icon" style="background:rgba(141,198,63,.15);color:#a4d466">
+            <i class="fa-solid fa-fire"></i>
+          </div>
+          <div><h4>${d.streak.current}</h4><p>يوم متتالٍ</p></div>
+        </div>
+        <div class="stat-tile">
+          <div class="icon" style="background:rgba(14,165,233,.15);color:#38bdf8">
+            <i class="fa-solid fa-clock"></i>
+          </div>
+          <div><h4>${d.totalStudyHours}h</h4><p>وقت الدراسة</p></div>
+        </div>
+        <div class="stat-tile">
+          <div class="icon" style="background:rgba(16,185,129,.15);color:#34d399">
+            <i class="fa-solid fa-bolt"></i>
+          </div>
+          <div><h4>${d.xp}</h4><p>XP · مستوى ${d.level}</p></div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:22px">
+        <div class="section-label">التقدّم للمستوى ${d.level + 1}</div>
+        <div class="mastery">
+          <div class="mastery-head">
+            <strong>${d.xp} / ${d.nextLevelXP} XP</strong>
+            <span style="color:#a4d466">${d.levelProgress}%</span>
+          </div>
+          <div class="mastery-track">
+            <div class="mastery-fill" style="width:${d.levelProgress}%"></div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-4" style="margin-bottom:22px">
+        <div class="stat-tile">
+          <div class="icon" style="background:rgba(141,198,63,.15);color:#a4d466">
+            <i class="fa-solid fa-circle-check"></i>
+          </div>
+          <div><h4>${d.totalAttempts}</h4><p>محاولة</p></div>
+        </div>
+        <div class="stat-tile">
+          <div class="icon" style="background:rgba(251,191,36,.15);color:#fbbf24">
+            <i class="fa-solid fa-trophy"></i>
+          </div>
+          <div><h4>${d.achievements}</h4><p>إنجاز</p></div>
+        </div>
+        <div class="stat-tile">
+          <div class="icon" style="background:rgba(16,185,129,.15);color:#34d399">
+            <i class="fa-solid fa-medal"></i>
+          </div>
+          <div><h4>${d.streak.best}</h4><p>أفضل سلسلة</p></div>
+        </div>
+        <div class="stat-tile">
+          <div class="icon" style="background:rgba(14,165,233,.15);color:#38bdf8">
+            <i class="fa-solid fa-layer-group"></i>
+          </div>
+          <div><h4>${d.recentAchievements.length}</h4><p>حديث</p></div>
+        </div>
+      </div>
+    `;
+    const myXp = document.getElementById('my-xp');
+    if (myXp) myXp.textContent = `${d.xp} XP`;
+    const accXp = document.getElementById('acc-xp');
+    if (accXp) accXp.textContent = d.xp;
+  } catch(e) {
+    console.error('Dashboard error:', e);
+    const box = document.getElementById('dashboard-content');
+    if (box) box.innerHTML = '<div class="card" style="text-align:center;color:#ef4444">⚠️ فشل تحميل الإحصائيات</div>';
+  }
+}
+
+/* ═══ AI Teacher ═══ */
+
+function sendAIMessage() {
+  const i = document.getElementById('chat-in');
+  if (!i) return;
+  const t = i.value.trim(); if (!t) return;
+  i.value = ''; AITeacher.send(t);
+}
+
+/* ═══ Zen ═══ */
+const moods = {
+  fear: ["🛡️ **الخطوة 1:** الخوف شعور طبيعي. المعلومات في ذاكرتك.", "🧠 **الخطوة 2:** تنفّس بعمق واقرأ السند بتؤدة.", "⭐ **الخطوة 3:** ثق بما راجعته."],
+  scattered: ["🎯 **الخطوة 1:** طبّق قاعدة الـ 5 دقائق.", "☕ **الخطوة 2:** خذ استراحة 5 دقائق.", "🏆 **الخطوة 3:** تذكّر هدفك."],
+  time: ["⏳ **الخطوة 1:** ساعتان تكفيان لمراجعة درس.", "🧭 **الخطوة 2:** تجاوز السؤال الصعب.", "✨ **الخطوة 3:** الهدوء هو السر."],
+  ready: ["🚀 **الخطوة 1:** استثمر حماسك.", "💎 **الخطوة 2:** ركّز على الأفخاخ.", "👑 **الخطوة 3:** واصل."]
+};
+let moodKey = null, moodIdx = 0;
+function pickMood(btn, key) {
+  Sound.tap();
+  document.querySelectorAll('.mood').forEach(m => m.classList.remove('on'));
+  btn.classList.add('on');
+  moodKey = key; moodIdx = 0;
+  const resp = document.getElementById('mood-resp');
+  if (resp) resp.classList.add('on');
+  renderMood();
+  try { EcoDB.logMood(key); } catch(e) {}
+}
+function renderMood() {
+  const el = document.getElementById('mood-text');
+  if (el && moodKey) el.innerHTML = AITeacher.renderMarkdown(moods[moodKey][moodIdx]);
+}
+function nextMood() {
+  Sound.ok();
+  moodIdx++;
+  if (moodIdx >= moods[moodKey].length) moodIdx = 0;
+  renderMood();
+}
+
+let breathing = false, breathTimer = null;
+function toggleBreath() { breathing ? stopBreath() : startBreath(); }
+function startBreath() {
+  breathing = true; Sound.ok();
+  const btn = document.getElementById('breath-btn');
+  if (btn) btn.textContent = 'إيقاف';
+  const ball = document.getElementById('ball');
+  const label = document.getElementById('breath-label');
+  function cycle() {
+    if (!breathing) return;
+    if (label) label.textContent = 'شهيق...';
+    if (ball) ball.className = 'breath-ball grow';
+    setTimeout(() => {
+      if (!breathing) return;
+      if (label) label.textContent = 'احبس...';
+      if (ball) ball.className = 'breath-ball grow hold';
+      setTimeout(() => {
+        if (!breathing) return;
+        if (label) label.textContent = 'زفير...';
+        if (ball) ball.className = 'breath-ball';
+      }, 4000);
+    }, 4000);
+  }
+  cycle();
+  breathTimer = setInterval(cycle, 12000);
+}
+function stopBreath() {
+  breathing = false;
+  clearInterval(breathTimer);
+  const ball = document.getElementById('ball');
+  if (ball) ball.className = 'breath-ball';
+  const label = document.getElementById('breath-label');
+  if (label) label.textContent = 'جاهز؟';
+  const btn = document.getElementById('breath-btn');
+  if (btn) btn.textContent = 'ابدأ الجلسة';
+}
+
+let pomoSec = 25 * 60, pomoTimer = null, pomoRun = false;
+function renderPomo() {
+  const m = Math.floor(pomoSec / 60), s = pomoSec % 60;
+  const el = document.getElementById('pomo');
+  if (el) el.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+function togglePomo() {
+  Sound.tap();
+  const btn = document.getElementById('pomo-btn');
+  if (pomoRun) {
+    clearInterval(pomoTimer); pomoRun = false;
+    if (btn) btn.textContent = 'استئناف';
+  } else {
+    pomoRun = true;
+    if (btn) btn.textContent = 'إيقاف';
+    pomoTimer = setInterval(() => {
+      if (pomoSec > 0) { pomoSec--; renderPomo(); }
+      else {
+        clearInterval(pomoTimer); pomoRun = false;
+        Sound.ok(); toast('🎉 انتهت الجلسة!', 'ok');
+        EcoDB.logSession('pomodoro', 25 * 60, { complete: true }).catch(() => {});
+        EcoDB.addXP(25).catch(() => {});
+        resetPomo();
+      }
+    }, 1000);
+  }
+}
+function resetPomo() {
+  clearInterval(pomoTimer); pomoRun = false;
+  pomoSec = 25 * 60;
+  renderPomo();
+  const btn = document.getElementById('pomo-btn');
+  if (btn) btn.textContent = 'بدء';
+}
+
+/* ═══ Sync Panel ═══ */
+function renderSyncPanel() {
+  const box = document.getElementById('sync-content');
+  if (!box) return;
+  box.innerHTML = `
+    <div class="card">
+      <div class="section-label">إدارة البيانات</div>
+      <p style="color:var(--text-muted);font-size:.88rem;line-height:1.7;margin-bottom:16px">
+        بياناتك محفوظة محلياً. يمكنك تصديرها للاحتفاظ بنسخة احتياطية.
+      </p>
+      <button class="btn btn-mint btn-block" onclick="exportBackup()">
+        <i class="fa-solid fa-download"></i> تصدير نسخة احتياطية
+      </button>
+    </div>
+  `;
+}
+async function exportBackup() {
+  try {
+    const data = {};
+    for (const store of Object.keys(STORES)) data[store] = await dbGetAll(store);
+    const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), data }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `eco-bem-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('✅ تم التصدير', 'ok');
+  } catch(e) { toast('❌ فشل التصدير', 'err'); }
+}
+
+/* ═══ Analytics ═══ */
+function renderAnalytics() {
+  const box = document.getElementById('analytics-content');
+  if (!box) return;
+  box.innerHTML = `
+    <div class="card">
+      <div class="section-label">📊 التحليلات</div>
+      <p style="color:var(--text-muted);text-align:center;padding:40px">
+        ابدأ الدروس والاختبارات لعرض التحليلات البيانية.
+      </p>
+    </div>
+  `;
+}
+
+/* ═══ Notifications Panel ═══ */
+function renderNotifSettings() {
+  const box = document.getElementById('notif-content');
+  if (!box) return;
+  box.innerHTML = `
+    <div class="card">
+      <div class="section-label">حالة الإشعارات</div>
+      <p style="color:var(--text-muted);text-align:center;padding:20px">
+        الإشعارات المحلية قيد التطوير. تابعنا قريباً.
+      </p>
+    </div>
+  `;
+}
+
+/* ═══ Core Functions ═══ */
+let appEntered = false;
+function enterApp() {
+  renderAnnalsSubjects();
+  initCustomSelects();
+    if (appEntered) return;
+    appEntered = true;
+    Sound.ok();
+    const splash = document.getElementById('splash');
+    if (splash) splash.classList.add('gone');
+    
+    // AUTHENTICATION CHECK
+    if (!localStorage.getItem('eco_token')) {
+      const authOv = document.getElementById('ov-auth');
+      if(authOv) {
+        authOv.style.display = 'flex';
+        authOv.style.opacity = '1';
+        authOv.classList.add('on');
+        const authBack = authOv.querySelector('.back');
+        if (authBack) authBack.style.display = 'none';
+      }
+      return; // Stop loading app until logged in
+    }
+
+    setTimeout(() => {
+      try {
+        loadTheme();
+        renderUserName();
+        renderLessons();
+        renderYears();
+        loadExam();
+        renderCard();
+      } catch(e) { console.error('[Init]', e); }
+    }, 300);
+  }
+
+function toggleTheme() {
+  Sound.tap();
+  document.body.classList.toggle('light');
+  const isLight = document.body.classList.contains('light');
+  const btn = document.getElementById('themeBtn');
+  if (btn) btn.innerHTML = `<i class="fa-solid fa-${isLight ? 'moon' : 'sun'}"></i>`;
+  try { localStorage.setItem('eco-theme', isLight ? 'light' : 'dark'); } catch(e) {}
+}
+function loadTheme() {
+  try {
+    let theme = localStorage.getItem('eco-theme');
+    if (!theme) {
+      const h = new Date().getHours();
+      theme = (h >= 18 || h < 6) ? 'dark' : 'light';
+    }
+    const btn = document.getElementById('themeBtn');
+    if (theme === 'light') {
+      document.body.classList.add('light');
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-moon"></i>';
+    } else {
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-sun"></i>';
+    }
+  } catch(e) {}
+}
+function toggleDrawer(open) {
+  Sound.tap();
+  const d = document.getElementById('drawer');
+  const b = document.getElementById('backdrop');
+  if (d) d.classList.toggle('on', open);
+  if (b) b.classList.toggle('on', open);
+}
+function openOverlay(id) {
+  Sound.tap();
+  const el = document.getElementById('ov-' + id);
+  if (!el) return;
+  el.classList.add('on');
+  if (id === 'stats2') renderAnalytics();
+  else if (id === 'notif') renderNotifSettings();
+  else if (id === 'sync') renderSyncPanel(); 
+  
+  else if (id === 'rank' && typeof window.loadLeaderboard === 'function') window.loadLeaderboard();
+}
+
+// --- AI FLASHCARDS ---
+let aiFlashData = [];
+let aiFlashIdx = 0;
+let flashCardFlipped = false;
+
+async function startAIFlashcards() {
+    const subject = document.getElementById('flash-subject').value;
+    document.getElementById('flash-setup').style.display = 'none';
+    document.getElementById('flash-loading').style.display = 'block';
+    
+    let apiKey = localStorage.getItem('gemini_api_key') || 'AQ.Ab8RN6LloMNNz-fZGviiB2svB2EBd338MiuvNyW7NIsKsERJmw';
+    const prompt = `قم بتوليد 5 بطاقات استذكار (Flashcards) لمراجعة أهم المفاهيم في مادة ${subject} في مستوى شهادة التعليم المتوسط (BEM) في الجزائر.
+الرد يجب أن يكون حصراً بصيغة JSON array فقط، كل عنصر يحتوي على:
+{
+  "term": "المفهوم أو المصطلح",
+  "definition": "الشرح المبسط"
+}
+لا تضف أي نص آخر قبل أو بعد الـ JSON.`;
+
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] })
+        });
+        const data = await response.json();
+        let text = data.candidates[0].content.parts[0].text;
+        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        aiFlashData = JSON.parse(text);
+        
+        document.getElementById('flash-loading').style.display = 'none';
+        document.getElementById('flash-play').style.display = 'block';
+        aiFlashIdx = 0;
+        flashCardFlipped = false;
+        renderAIFlashcard();
+    } catch (e) {
+        alert('حدث خطأ في توليد البطاقات: ' + e.message);
+        resetFlashcards();
+    }
+}
+
+function renderAIFlashcard() {
+    if (aiFlashIdx >= aiFlashData.length) {
+        document.getElementById('flash-play').style.display = 'none';
+        document.getElementById('flash-result').style.display = 'block';
+        try { EcoDB.addXP(50); } catch(e) {}
+        return;
+    }
+    const card = aiFlashData[aiFlashIdx];
+    const fc = document.getElementById('fc');
+    fc.style.transform = 'none';
+    flashCardFlipped = false;
+    
+    document.getElementById('fc-text').textContent = card.term;
+    document.getElementById('fc-hint').textContent = 'اضغط لمعرفة الشرح';
+    const prog = document.getElementById('flash-progress');
+    if(prog) prog.textContent = `بطاقة ${aiFlashIdx + 1} من ${aiFlashData.length}`;
+}
+
+window.flipCard = function() {
+    const card = aiFlashData[aiFlashIdx];
+    if (!card) return;
+    flashCardFlipped = !flashCardFlipped;
+    const fc = document.getElementById('fc');
+    if (flashCardFlipped) {
+        fc.style.transform = 'rotateX(180deg)';
+        setTimeout(() => {
+            fc.style.transform = 'none';
+            document.getElementById('fc-text').textContent = card.definition;
+            document.getElementById('fc-hint').textContent = 'الشرح';
+        }, 150);
+    } else {
+        fc.style.transform = 'rotateX(180deg)';
+        setTimeout(() => {
+            fc.style.transform = 'none';
+            document.getElementById('fc-text').textContent = card.term;
+            document.getElementById('fc-hint').textContent = 'اضغط لمعرفة الشرح';
+        }, 150);
+    }
+    Sound.tap();
+}
+
+window.nextCard = function() {
+    Sound.tap();
+    aiFlashIdx++;
+    renderAIFlashcard();
+}
+
+window.prevCard = function() {
+    Sound.tap();
+    if (aiFlashIdx > 0) {
+        aiFlashIdx--;
+        renderAIFlashcard();
+    }
+}
+
+window.resetFlashcards = function() {
+    document.getElementById('flash-setup').style.display = 'block';
+    document.getElementById('flash-loading').style.display = 'none';
+    document.getElementById('flash-play').style.display = 'none';
+    document.getElementById('flash-result').style.display = 'none';
+}
+
+
+// --- AI QUIZ ---
+let aiQuizData = [];
+let aiQuizIdx = 0;
+let aiQuizScore = 0;
+
+window.startAIQuiz = async function() {
+    const subject = document.getElementById('quiz-subject').value;
+    document.getElementById('quiz-setup').style.display = 'none';
+    document.getElementById('quiz-loading').style.display = 'block';
+    
+    let apiKey = localStorage.getItem('gemini_api_key') || 'AQ.Ab8RN6LloMNNz-fZGviiB2svB2EBd338MiuvNyW7NIsKsERJmw';
+    const prompt = `قم بتوليد 5 أسئلة اختيار من متعدد (QCM) لمادة ${subject} في مستوى شهادة التعليم المتوسط (BEM) في الجزائر.
+الرد يجب أن يكون حصراً بصيغة JSON array فقط، كل عنصر يحتوي على:
+{
+  "q": "نص السؤال هنا",
+  "opts": [
+    {"t": "الخيار الأول", "c": false},
+    {"t": "الخيار الصحيح", "c": true},
+    {"t": "الخيار الثالث", "c": false},
+    {"t": "الخيار الرابع", "c": false}
+  ]
+}
+لا تضف أي نص آخر قبل أو بعد الـ JSON.`;
+
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] })
+        });
+        const data = await response.json();
+        let text = data.candidates[0].content.parts[0].text;
+        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        aiQuizData = JSON.parse(text);
+        
+        document.getElementById('quiz-loading').style.display = 'none';
+        document.getElementById('quiz-box').style.display = 'block';
+        aiQuizIdx = 0;
+        aiQuizScore = 0;
+        renderAIQuiz();
+    } catch (e) {
+        alert('حدث خطأ في توليد الأسئلة: ' + e.message);
+        resetQuiz();
+    }
+}
+
+function renderAIQuiz() {
+    if (aiQuizIdx >= aiQuizData.length) {
+        finishAIQuiz();
+        return;
+    }
+    const q = aiQuizData[aiQuizIdx];
+    const p = document.getElementById('quiz-progress-text');
+    if(p) p.textContent = `السؤال ${aiQuizIdx + 1} من ${aiQuizData.length}`;
+    document.getElementById('quiz-title').textContent = q.q;
+    const optsDiv = document.getElementById('quiz-opts');
+    optsDiv.innerHTML = '';
+    
+    q.opts.sort(() => Math.random() - 0.5); // Shuffle
+    
+    q.opts.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'opt';
+        btn.innerHTML = `<span>${opt.t}</span> <i class="fa-solid fa-circle"></i>`;
+        btn.onclick = () => {
+            if (opt.c) {
+                btn.classList.add('correct');
+                Sound.ok();
+                aiQuizScore++;
+            } else {
+                btn.classList.add('wrong');
+                Sound.err();
+                optsDiv.childNodes.forEach(child => {
+                    if (child.innerText.includes(q.opts.find(o => o.c).t)) child.classList.add('correct');
+                });
+            }
+            optsDiv.childNodes.forEach(c => c.style.pointerEvents = 'none');
+            setTimeout(() => { aiQuizIdx++; renderAIQuiz(); }, 1500);
+        };
+        optsDiv.appendChild(btn);
+    });
+}
+
+async function finishAIQuiz() {
+    document.getElementById('quiz-box').style.display = 'none';
+    document.getElementById('quiz-result').style.display = 'block';
+    document.getElementById('quiz-score').textContent = `النتيجة: ${aiQuizScore} / ${aiQuizData.length}`;
+    const xpEarned = aiQuizScore * 10;
+    document.getElementById('quiz-xp').textContent = `+${xpEarned} XP`;
+    try {
+        await EcoDB.addXP(xpEarned);
+    } catch(e) {}
+}
+
+window.resetQuiz = function() {
+    document.getElementById('quiz-setup').style.display = 'block';
+    document.getElementById('quiz-loading').style.display = 'none';
+    document.getElementById('quiz-box').style.display = 'none';
+    document.getElementById('quiz-result').style.display = 'none';
+}
+
+  function closeOverlay(id) {
+  Sound.tap();
+  const el = document.getElementById('ov-' + id);
+  if (el) el.classList.remove('on');
+}
+function togglePremium(open, name) {
+  Sound.tap();
+  if (name) {
+    const el = document.getElementById('premium-title');
+    if (el) el.textContent = `مادة ${name} متوفرة في النسخة الشاملة`;
+  }
+  const p = document.getElementById('premium');
+  if (p) p.classList.toggle('on', open);
+}
+function openPayments() {
+  togglePremium(false);
+  Sound.tap();
+  go('tab-pricing', null);
+}
+function contactForPayment(plan) {
+  window.open(`https://wa.me/213697454244?text=${encodeURIComponent(`أريد تفعيل اشتراك ECO-BEM PRO (${plan})`)}`, '_blank');
+}
+function go(tabId, navId) {
+  Sound.tap();
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  const tab = document.getElementById(tabId);
+  if (tab) tab.classList.add('on');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('on'));
+  if (navId) {
+    const btn = document.getElementById(navId);
+    if (btn) btn.classList.add('on');
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (tabId === 'tab-stats') renderDashboard();
+  else if (tabId === 'tab-lessons') renderLessons();
+  else if (tabId === 'tab-archive') { renderYears(); loadExam(); }
+}
+
+/* ═══ ESC Close ═══ */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.overlay.on').forEach(o => {
+        if (o.id !== 'ov-auth') o.classList.remove('on');
+      });
+    const p = document.getElementById('premium');
+    if (p) p.classList.remove('on');
+    toggleDrawer(false);
+  }
+});
+
+/* ═══ Global Error Handler ═══ */
+window.addEventListener('error', (e) => {
+  console.error('[Global Error]', e.error || e.message);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('[Unhandled Promise]', e.reason);
+});
+
+/* ═══ Auto-Init ═══ */
+document.addEventListener('DOMContentLoaded', () => {
+  loadTheme();
+  renderUserName();
+  try { renderCard(); } catch(e) {}
+  renderLessons();
+  renderYears();
+  loadExam();
+});
+function saveAttempt(year, subj) {
+  const ta = document.getElementById(`attempt-${year}-${subj}`);
+  const sol = document.getElementById(`solution-${year}-${subj}`);
+  
+  if (ta.value.trim() === '') {
+    alert('الرجاء كتابة محاولتك أولاً قبل الحفظ والمقارنة.');
+    return;
+  }
+  
+  localStorage.setItem(`bem-attempt-${year}-${subj}`, ta.value);
+  
+  sol.style.display = 'block';
+  
+  ta.readOnly = true;
+  ta.style.border = '2px solid #10b981';
+  ta.style.backgroundColor = '#fdfaf3';
+  ta.style.color = '#064e3b';
+  
+  Sound.ok();
+  
+  // Scroll to solution
+  sol.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/* ══════════════ Avatar & Dream Logic ══════════════ */
+window.handleAvatarUpload = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    try {
+      localStorage.setItem('eco_user_avatar', dataUrl);
+      window.loadAvatar(); console.log('Avatar uploaded and loaded!');
+      toast('تم تحديث الصورة بنجاح! 📸', 'ok');
+    } catch (err) {
+      toast('❌ الصورة كبيرة جداً، يرجى اختيار صورة أصغر بحجم أقل من 2 ميغابايت.', 'err');
+    }
+  };
+  reader.readAsDataURL(file);
+};
+
+window.loadAvatar = function() {
+  try {
+    const dataUrl = localStorage.getItem('eco_user_avatar');
+    const avatarEl = document.getElementById('account-avatar');
+    const drawerAvatarEl = document.getElementById('drawer-avatar');
+    const miniEl = document.querySelector('.avatar-mini');
+    const initialEl = document.getElementById('avatar-initial');
+    
+    if (dataUrl) {
+      if (avatarEl) {
+        avatarEl.style.backgroundImage = 'url(' + dataUrl + ')';
+        if(initialEl) initialEl.style.display = 'none';
+      }
+      if (drawerAvatarEl) {
+        drawerAvatarEl.style.backgroundImage = 'url(' + dataUrl + ')';
+        drawerAvatarEl.style.backgroundSize = 'cover';
+        drawerAvatarEl.style.backgroundPosition = 'center';
+        drawerAvatarEl.style.color = 'transparent'; // hide the initial text
+      }
+      if (miniEl) {
+        miniEl.style.backgroundImage = 'url(' + dataUrl + ')';
+        miniEl.style.backgroundSize = 'cover';
+        miniEl.style.backgroundPosition = 'center';
+        miniEl.style.color = 'transparent'; // hide text
+      }
+    }
+  } catch(e) {}
+};
+
+window.editDream = function() {
+  let current = '';
+  try { current = localStorage.getItem('eco_user_dream') || ''; } catch(e){}
+  const nxt = prompt('🎯 ما هو هدفك الأكبر هذا العام؟ (مثال: معدل 18 لثانوية الرياضيات)', current);
+  if (nxt !== null) {
+    try {
+      localStorage.setItem('eco_user_dream', nxt);
+      window.loadDream();
+      toast('تم حفظ حلمك، نحن نؤمن بك! 🌟', 'ok');
+    } catch(e) {}
+  }
+};
+
+window.loadDream = function() {
+  try {
+    const d = localStorage.getItem('eco_user_dream');
+    const el = document.getElementById('account-dream');
+    if (el) {
+      if (d && d.trim().length > 0) el.textContent = d;
+      else el.textContent = 'اضغط هنا لكتابة حلمك...';
+    }
+  } catch(e) {}
+};
+
+// Hook into initial UI setup
+const oldUpdateUserUI = window.updateUserUI;
+window.updateUserUI = function() {
+  if (typeof oldUpdateUserUI === 'function') oldUpdateUserUI();
+  window.loadAvatar(); console.log('Avatar uploaded and loaded!');
+  window.loadDream();
+};
+
+
+/* ══════════════ AUTH & DB SYNC LOGIC ══════════════ */
+const API_URL = 'http://localhost:3000/api';
+
+window.switchAuth = function(tab) {
+  document.getElementById('tab-login').classList.remove('on');
+  document.getElementById('tab-register').classList.remove('on');
+  document.getElementById('form-login').style.display = 'none';
+  document.getElementById('form-register').style.display = 'none';
+
+  document.getElementById('tab-' + tab).classList.add('on');
+  document.getElementById('form-' + tab).style.display = 'block';
+  Sound.tap();
+};
+
+window.handleRegister = async function(e) {
+  e.preventDefault();
+  const name = document.getElementById('reg-name').value;
+  const email = document.getElementById('reg-email').value;
+  const password = document.getElementById('reg-pass').value;
+  
+  try {
+    const res = await fetch(API_URL + '/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    
+    localStorage.setItem('eco_token', data.token);
+    toast(data.message, 'ok');
+    closeOverlay('auth');
+    syncUserData(); // Load from DB
+  } catch(err) {
+    toast(err.message, 'err');
+  }
+};
+
+window.handleLogin = async function(e) {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-pass').value;
+  
+  try {
+    const res = await fetch(API_URL + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    
+    localStorage.setItem('eco_token', data.token);
+    toast(data.message, 'ok');
+    closeOverlay('auth');
+    syncUserData(); // Load from DB
+  } catch(err) {
+    toast(err.message, 'err');
+  }
+};
+
+window.handleLogout = function() {
+  if(confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+    localStorage.removeItem('eco_token');
+    localStorage.removeItem('eco_user');
+    location.reload();
+  }
+};
+
+window.syncUserData = async function() {
+  const token = localStorage.getItem('eco_token');
+  if (!token) return; // Stay in local guest mode
+
+  try {
+    const res = await fetch(API_URL + '/user/me', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (res.ok) {
+      const user = await res.json();
+      // Override local data with DB data
+      setUserName(user.name, true);
+      if (user.avatar_url) localStorage.setItem('eco_user_avatar', user.avatar_url);
+      if (user.dream_goal) localStorage.setItem('eco_user_dream', user.dream_goal);
+      if (user.xp) window.addXP(0, true); // We'll need a better way to set absolute XP, but for now it's ok
+      // For now, let's just update the UI directly if we have to
+      document.getElementById('acc-xp').textContent = user.xp;
+      
+      // Coins Logic
+      window.userCoins = user.coins || 0;
+      const coinsEl = document.getElementById('ui-coins');
+      if (coinsEl) coinsEl.textContent = window.userCoins;
+
+      window.loadAvatar(); console.log('Avatar uploaded and loaded!');
+      window.loadDream();
+      
+      // Initial render for daily quests
+      if(typeof renderDailyQuests === 'function') renderDailyQuests();
+    } else {
+      // Token invalid
+      localStorage.removeItem('eco_token');
+    }
+  } catch(err) {
+    console.error("Sync error:", err);
+  }
+};
+
+window.saveToDB = async function(updates) {
+  const token = localStorage.getItem('eco_token');
+  if (!token) return; // local only
+  try {
+    await fetch(API_URL + '/user/update', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token 
+      },
+      body: JSON.stringify(updates)
+    });
+  } catch(e) {}
+};
+
+// Hook into existing avatar and dream saving logic
+const originalHandleAvatarUpload = window.handleAvatarUpload;
+window.handleAvatarUpload = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      // Compress image
+      const canvas = document.createElement('canvas');
+      const MAX_SIZE = 256;
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > MAX_SIZE) {
+          height *= MAX_SIZE / width;
+          width = MAX_SIZE;
+        }
+      } else {
+        if (height > MAX_SIZE) {
+          width *= MAX_SIZE / height;
+          height = MAX_SIZE;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      
+      try {
+        localStorage.setItem('eco_user_avatar', dataUrl);
+        window.loadAvatar(); console.log('Avatar uploaded and loaded!');
+        window.saveToDB({ avatar_url: dataUrl }); // SYNC TO DB
+        toast('تم تحديث الصورة بنجاح! 📸', 'ok');
+      } catch (err) {
+        toast('❌ حدث خطأ في حفظ الصورة.', 'err');
+      }
+      event.target.value = ''; // Reset input so same file can be chosen again
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+
+window.editDream = function() {
+  let current = '';
+  try { current = localStorage.getItem('eco_user_dream') || ''; } catch(e){}
+  const nxt = prompt('🎯 ما هو هدفك الأكبر هذا العام؟ (مثال: معدل 18 لثانوية الرياضيات)', current);
+  if (nxt !== null) {
+    try {
+      localStorage.setItem('eco_user_dream', nxt);
+      window.loadDream();
+      window.saveToDB({ dream_goal: nxt }); // SYNC TO DB
+      toast('تم حفظ حلمك، نحن نؤمن بك! 🌟', 'ok');
+    } catch(e) {}
+  }
+};
+
+// Override setUserName to sync if needed
+const originalSetUserName = window.setUserName;
+window.setUserName = function(name, skipSync = false) {
+  const res = originalSetUserName(name);
+  if (res && !skipSync) {
+    window.saveToDB({ name });
+  }
+  return res;
+}
+
+
+
+
+
+/* 🪙🪙🪙 DAILY QUESTS & COINS LOGIC 🪙🪙🪙 */
+window.userCoins = 0;
+
+window.dailyQuests = [
+  { id: 'math-quiz', title: 'حل تمرين رياضيات', xpReward: 50, coinsReward: 10, icon: 'fa-calculator', color: '#38bdf8', isDone: false, action: () => openLessons('math') },
+  { id: 'ai-chat', title: 'اطرح سؤالاً على المعلم الذكي', xpReward: 30, coinsReward: 5, icon: 'fa-robot', color: '#8b5cf6', isDone: false, action: () => openOverlay('teacher') },
+  { id: 'zen-mode', title: 'جلسة تنفس (مساحة رفيقي)', xpReward: 20, coinsReward: 5, icon: 'fa-leaf', color: '#34d399', isDone: false, action: () => openOverlay('zen') }
+];
+
+window.completeQuest = async function(questId) {
+  const q = window.dailyQuests.find(x => x.id === questId);
+  if (!q || q.isDone) return;
+  
+  q.isDone = true;
+  
+  // Award XP
+  try { await EcoDB.addXP(q.xpReward); } catch(e) {}
+  
+  // Award Coins
+  window.userCoins += q.coinsReward;
+  const coinsEl = document.getElementById('ui-coins');
+  if (coinsEl) coinsEl.textContent = window.userCoins;
+  
+  toast(`مهمة منجزة! حصلت على ${q.xpReward} XP و ${q.coinsReward} عملات ذهبية`, 'ok');
+  Sound.ok();
+  
+  // Save coins to DB
+  window.saveToDB({ coins: window.userCoins });
+  
+  renderDailyQuests();
+};
+
+window.renderDailyQuests = function() {
+  const container = document.getElementById('daily-quests-container');
+  const progress = document.getElementById('quests-progress');
+  if (!container || !progress) return;
+  
+  container.innerHTML = '';
+  
+  let doneCount = 0;
+  
+  window.dailyQuests.forEach(q => {
+    if (q.isDone) doneCount++;
+    
+    const div = document.createElement('div');
+    div.style.display = 'flex';
+    div.style.alignItems = 'center';
+    div.style.gap = '12px';
+    div.style.padding = '12px';
+    div.style.background = 'var(--bg-elev-1)';
+    div.style.borderRadius = 'var(--r-md)';
+    
+    if (q.isDone) {
+      div.style.opacity = '0.6';
+      div.innerHTML = `
+        <i class="fa-solid fa-circle-check" style="color:#10b981;font-size:1.2rem"></i>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:0.95rem;text-decoration:line-through">${q.title}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted)">+${q.xpReward} XP | +${q.coinsReward} 🪙</div>
+        </div>
+      `;
+    } else {
+      div.style.borderRight = `3px solid ${q.color}`;
+      div.innerHTML = `
+        <i class="fa-solid ${q.icon}" style="color:${q.color};font-size:1.2rem"></i>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:0.95rem">${q.title}</div>
+          <div style="font-size:0.75rem;color:${q.color}">+${q.xpReward} XP | +${q.coinsReward} 🪙</div>
+        </div>
+        <button class="btn btn-primary" style="padding:4px 12px;font-size:0.8rem;border-radius:12px;background:${q.color};border:none">إنجاز</button>
+      `;
+      const btn = div.querySelector('button');
+      btn.onclick = () => {
+         // Perform action first
+         if(q.action) q.action();
+         // Wait a little before marking it complete (in real life, this would hook into the actual completion event of the lesson/chat)
+         setTimeout(() => window.completeQuest(q.id), 2000);
+      };
+    }
+    
+    container.appendChild(div);
+  });
+  
+  progress.textContent = `${doneCount}/${window.dailyQuests.length} منجزة`;
+};
+
+// Initial Render
+document.addEventListener('DOMContentLoaded', () => {
+  renderDailyQuests();
+});
+
+
+/* 🏆 LEADERBOARD LOGIC 🏆 */
+window.loadLeaderboard = async function() {
+    const list = document.getElementById('leaderboard-list');
+    if (!list) return;
+    
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin"></i> جاري تحميل القائمة...</div>';
+    
+    try {
+        const res = await fetch(API_URL + '/leaderboard');
+        if (!res.ok) throw new Error('Failed to fetch');
+        const data = await res.json();
+        
+        list.innerHTML = '';
+        
+        data.forEach((user, index) => {
+            let rowClass = 'rank-row';
+            if (index === 0) rowClass += ' gold';
+            else if (index === 1) rowClass += ' silver';
+            else if (index === 2) rowClass += ' bronze';
+            
+            // Check if this is the current user
+            const myName = document.getElementById('account-name')?.textContent;
+            if (myName && user.name === myName) {
+                rowClass += ' me';
+            }
+            
+            const div = document.createElement('div');
+            div.className = rowClass;
+            
+            // Generate avatar if not present
+            let avatarHtml = `<span class="rank-num">${index + 1}</span>`;
+            if (user.avatar_url && user.avatar_url.trim() !== '') {
+                avatarHtml = `<div style="display:flex;align-items:center;gap:10px;">
+                                <span class="rank-num">${index + 1}</span>
+                                <div style="width:30px;height:30px;border-radius:50%;background:url('${user.avatar_url}') center/cover;border:1px solid rgba(255,255,255,0.2)"></div>
+                              </div>`;
+            }
+            
+            div.innerHTML = `
+                ${avatarHtml}
+                <span class="rank-name">${user.name}</span>
+                <span class="rank-xp">${user.xp || 0} XP</span>
+            `;
+            list.appendChild(div);
+        });
+        
+    } catch(err) {
+        list.innerHTML = '<div style="text-align:center;padding:20px;color:#f87171;">حدث خطأ أثناء تحميل القائمة.</div>';
+    }
+};
+
+
+// ═══════════════ BEM ANNALS LOGIC ═══════════════
+function renderAnnalsSubjects() {
+  const listEl = document.getElementById('annals-subject-list');
+  if (!listEl) return;
+  
+  listEl.innerHTML = '';
+  
+  if (typeof annalsData === 'undefined') {
+    listEl.innerHTML = '<div style="color:var(--text-muted);grid-column:1/-1;">لم يتم العثور على بيانات الحوليات. تأكد من تحميل annalsData.js</div>';
+    
+    return;
+  }
+  
+  const subjects = Object.keys(annalsData);
+  if (subjects.length === 0) {
+    listEl.innerHTML = '<div style="color:var(--text-muted);grid-column:1/-1;">لا توجد حوليات متوفرة حالياً.</div>';
+  } else {
+    subjects.forEach(sub => {
+      // Find the first year to use as default or create a sub-menu later
+      // For now, if clicking a subject, just open the first year available
+      const years = Object.keys(annalsData[sub]).sort((a,b)=>b.localeCompare(a)); // newest first
+      const defaultYear = years[0];
+      
+      const div = document.createElement('div');
+      div.className = 'tile';
+      div.style.textAlign = 'center';
+      div.style.padding = '15px';
+      
+      // Determine color based on subject (simple hash or mapping)
+      let color = '#fbbf24';
+      if(sub.includes('رياضيات') || sub.includes('فيزياء')) color = '#38bdf8';
+      if(sub.includes('عربية') || sub.includes('إسلامية')) color = '#10b981';
+      if(sub.includes('تاريخ')) color = '#a855f7';
+      if(sub.includes('فرنسية') || sub.includes('إنجليزية')) color = '#f43f5e';
+      
+      div.innerHTML = `
+        <div class="tile-icon" style="background:${color}20;color:${color};margin:0 auto 10px;">
+          <i class="fa-solid fa-book"></i>
+        </div>
+        <h4 style="margin:0;font-size:1rem;">${sub}</h4>
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-top:5px;">${years.length} مواضيع متوفرة</div>
+      `;
+      div.onclick = () => openAnnalsViewer(sub, defaultYear);
+      listEl.appendChild(div);
+    });
+  }
+  
+  
+}
+
+function openAnnalsViewer(subject, year) {
+  
+  
+  const viewerTitle = document.getElementById('annals-viewer-title');
+  const subjImgs = document.getElementById('annals-subject-images');
+  const solImgs = document.getElementById('annals-solution-images');
+  const attemptArea = document.getElementById('annals-attempt-area');
+  const showBtn = document.getElementById('annals-show-solution-btn');
+  
+  // Build a dropdown for years if multiple years exist
+  const availableYears = Object.keys(annalsData[subject]);
+  let titleHtml = `حولية ${subject}`;
+  if (availableYears.length > 1) {
+    let savedYears = JSON.parse('{}' || '{}');
+    
+    let options = availableYears.map(y => {
+      return { key: y, display: savedYears[`${subject}_${y}`] || y.replace('_', ' ') };
+    });
+    
+    // Remove duplicates based on display text
+    let uniqueOptions = [];
+    let seen = new Set();
+    options.forEach(opt => {
+      if (!seen.has(opt.display)) {
+        seen.add(opt.display);
+        uniqueOptions.push(opt);
+      }
+    });
+    
+    // Sort descending by display text
+    uniqueOptions.sort((a, b) => b.display.localeCompare(a.display));
+
+    titleHtml += ` <select onchange="openAnnalsViewer('${subject}', this.value)" style="margin-right:10px;padding:4px;border-radius:4px;background:#fff;color:#000;border:1px solid #ccc;font-weight:bold;cursor:pointer;">`;
+    uniqueOptions.forEach(opt => {
+      titleHtml += `<option value="${opt.key}" ${opt.key === year ? 'selected' : ''}>${opt.display}</option>`;
+    });
+    titleHtml += `</select>`;
+    titleHtml += `<button onclick="editYear('${subject}', '${year}')" style="padding:4px 8px;border-radius:4px;background:#444;color:#fff;border:none;cursor:pointer;font-size:12px;margin-left:5px;">✏️ تعديل السنة</button>`;
+  } else {
+    titleHtml += ` - ${year}`;
+  }
+  viewerTitle.innerHTML = titleHtml;
+  
+  // Reset states
+  attemptArea.value = '';
+  solImgs.style.display = 'none';
+  showBtn.style.display = 'block';
+  
+  const data = annalsData[subject][year];
+  const pages = data.pages;
+  let customSplits = JSON.parse(localStorage.getItem('customSplits') || '{}');
+  if (subject === 'اللغة العربية' && year === '2026' && customSplits[`${subject}_${year}`] !== 1) {
+    customSplits[`${subject}_${year}`] = 1;
+    localStorage.setItem('customSplits', JSON.stringify(customSplits));
+  }
+  let splitIdx = customSplits[`${subject}_${year}`] !== undefined ? customSplits[`${subject}_${year}`] : data.split_idx;
+  
+  // Render Subject Images (0 to splitIdx-1)
+  subjImgs.innerHTML = '';
+  for(let i=0; i<splitIdx; i++) {
+    const img = document.createElement('img');
+    img.src = pages[i] + '?t=' + new Date().getTime();
+    img.style.width = '100%';
+    img.style.clipPath = 'inset(0 0 9% 0)';
+    img.style.marginBottom = '-9%';
+    img.style.borderRadius = '8px';
+    img.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+    // CSS filter to remove DzExams watermark (makes light gray pure white)
+    img.style.filter = 'grayscale(100%) contrast(1.7) brightness(1.2)';
+    subjImgs.appendChild(img);
+  }
+  
+  const splitControls = document.createElement('div');
+  splitControls.style.display = 'flex';
+  splitControls.style.justifyContent = 'center';
+  splitControls.style.gap = '10px';
+  splitControls.style.marginTop = '15px';
+  splitControls.innerHTML = `
+    <button onclick="adjustSplit('${subject}', '${year}', 1)" style="padding:8px 15px;border-radius:8px;background:#10b981;color:#fff;border:none;cursor:pointer;font-weight:bold;display:flex;align-items:center;gap:5px;"><i class="fa-solid fa-arrow-down"></i> إظهار صفحة إضافية للسؤال</button>
+    <button onclick="adjustSplit('${subject}', '${year}', -1)" style="padding:8px 15px;border-radius:8px;background:#e63946;color:#fff;border:none;cursor:pointer;font-weight:bold;display:flex;align-items:center;gap:5px;"><i class="fa-solid fa-arrow-up"></i> إرجاع الصفحة للإجابة</button>
+  `;
+  subjImgs.appendChild(splitControls);
+  
+  // Render Solution Images (splitIdx to end)
+  solImgs.innerHTML = '<h4 style="text-align:center;color:#10b981;margin-bottom:20px;padding-top:10px;border-top:2px dashed #10b981;">التصحيح النموذجي</h4>';
+  for(let i=splitIdx; i<pages.length; i++) {
+    const img = document.createElement('img');
+    img.src = pages[i] + '?t=' + new Date().getTime();
+    img.style.width = '100%';
+    img.style.clipPath = 'inset(0 0 9% 0)';
+    img.style.marginBottom = '-9%';
+    img.style.borderRadius = '8px';
+    img.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+    img.style.filter = 'grayscale(100%) contrast(1.7) brightness(1.2)';
+    solImgs.appendChild(img);
+  }
+  
+  openOverlay('annals-viewer');
+}
+
+function showAnnalsSolution() {
+  const attemptArea = document.getElementById('annals-attempt-area');
+  if (attemptArea.value.trim().length < 5) {
+    alert('يرجى المحاولة وكتابة إجابتك (أو بعض النقاط الرئيسية) قبل عرض الحل النموذجي!');
+    attemptArea.focus();
+    return;
+  }
+  
+  document.getElementById('annals-solution-images').style.display = 'block';
+  document.getElementById('annals-show-solution-btn').style.display = 'none';
+  
+  // Scroll to solution
+  setTimeout(() => {
+    document.getElementById('annals-solution-images').scrollIntoView({behavior: 'smooth'});
+  }, 100);
+}
+
+function closeAnnalsViewer() {
+  closeOverlay('annals-viewer');
+}
+
+window.openAnnalsViewer = openAnnalsViewer;
+
+window.editYear = function(subject, yearId) {
+    let saved = JSON.parse('{}' || '{}');
+    let current = saved[`${subject}_${yearId}`] || yearId.replace('_', ' ');
+    let newYear = prompt("أدخل السنة الصحيحة لهذا الامتحان (مثلاً: 2024):", current);
+    if (newYear && newYear.trim() !== '') {
+        saved[`${subject}_${yearId}`] = newYear.trim();
+        localStorage.setItem('customYears', JSON.stringify(saved));
+        openAnnalsViewer(subject, yearId); // Refresh view
+    }
+};
+
+window.adjustSplit = function(subject, yearId, delta) {
+    const data = annalsData[subject][yearId];
+    let customSplits = JSON.parse(localStorage.getItem('customSplits') || '{}');
+    let currentSplit = customSplits[`${subject}_${yearId}`] !== undefined ? customSplits[`${subject}_${yearId}`] : data.split_idx;
+    currentSplit += delta;
+    if (currentSplit < 1) currentSplit = 1;
+    if (currentSplit > data.pages.length) currentSplit = data.pages.length;
+    customSplits[`${subject}_${yearId}`] = currentSplit;
+    localStorage.setItem('customSplits', JSON.stringify(customSplits));
+    openAnnalsViewer(subject, yearId);
+};
+
+
+/* ═══ Custom Select Dropdown UI ═══ */
+function initCustomSelects() {
+    const selects = document.querySelectorAll('select');
+    selects.forEach(select => {
+        if (select.dataset.customized) return;
+        select.dataset.customized = true;
+        
+        const wrapper = document.createElement('div');
+        wrapper.className = 'custom-select-wrapper';
+        if (select.style.width) wrapper.style.width = select.style.width;
+        if (select.style.marginBottom) wrapper.style.marginBottom = select.style.marginBottom;
+        
+        const customSelect = document.createElement('div');
+        customSelect.className = 'custom-select';
+        
+        const optionsList = document.createElement('div');
+        optionsList.className = 'custom-options';
+        
+        let selectedOption = select.options[select.selectedIndex];
+        customSelect.innerHTML = selectedOption ? selectedOption.text : 'اختر المادة';
+        
+        Array.from(select.options).forEach((option, index) => {
+            const optDiv = document.createElement('div');
+            optDiv.className = 'custom-option';
+            if (index === select.selectedIndex) optDiv.classList.add('selected');
+            optDiv.textContent = option.text;
+            
+            optDiv.addEventListener('click', (e) => {
+                e.stopPropagation();
+                select.selectedIndex = index;
+                customSelect.innerHTML = option.text;
+                
+                optionsList.querySelectorAll('.custom-option').forEach(el => el.classList.remove('selected'));
+                optDiv.classList.add('selected');
+                
+                optionsList.classList.remove('open');
+                customSelect.classList.remove('open');
+            });
+            optionsList.appendChild(optDiv);
+        });
+        
+        customSelect.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.querySelectorAll('.custom-options').forEach(el => {
+                if(el !== optionsList) el.classList.remove('open');
+            });
+            document.querySelectorAll('.custom-select').forEach(el => {
+                if(el !== customSelect) el.classList.remove('open');
+            });
+            optionsList.classList.toggle('open');
+            customSelect.classList.toggle('open');
+        });
+        
+        select.style.display = 'none';
+        select.parentNode.insertBefore(wrapper, select);
+        wrapper.appendChild(customSelect);
+        wrapper.appendChild(optionsList);
+        wrapper.appendChild(select);
+    });
+    
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.custom-options').forEach(el => el.classList.remove('open'));
+        document.querySelectorAll('.custom-select').forEach(el => el.classList.remove('open'));
+    });
+}
+
+
+
+// -----------------------------------------
+// Zen Space - Audio & Chat (Companion Space)
+// -----------------------------------------
+
+const zenAudio = document.getElementById('zen-audio');
+const zenAudioSources = {
+    rain: './assets/rain.mp3',
+    lofi: './assets/lofi.mp3'
+};
+
+function playZenSound(type) {
+    let audioEl = document.getElementById('zen-audio');
+    if(!audioEl) {
+        alert("لم يتم العثور على مشغل الصوت.");
+        return;
+    }
+    
+    if (type === 'stop') {
+        audioEl.pause();
+        audioEl.currentTime = 0;
+        return;
+    }
+
+    if (zenAudioSources[type]) {
+        // Force reload the source if it's different or just to ensure it plays
+        audioEl.src = zenAudioSources[type];
+        audioEl.volume = 1.0;
+        
+        let playPromise = audioEl.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(e => {
+                console.log('Audio play failed:', e);
+                alert('تعذر تشغيل الصوت. متصفحك قد يحظر التشغيل التلقائي أو لا يدعم صيغة الملف.');
+            });
+        }
+    }
+}
+
+// Zen AI Chat
+const zenChatHistory = [
+    { role: 'system', content: 'أنت مرشد نفسي ودراسي لطيف جداً لتلاميذ شهادة التعليم المتوسط (BEM) في الجزائر. اسمك "رفيقي". هدفك تشجيع التلميذ، تخفيف توتره، وإعطاؤه نصائح دراسية ونفسية قصيرة وعملية. استخدم إيموجيز لطيفة وتحدث بلغة مبسطة قريبة للقلب.' }
+];
+
+async function sendZenMessage() {
+    const input = document.getElementById('zen-chat-input');
+    const box = document.getElementById('zen-chat-box');
+    const text = input.value.trim();
+    if(!text) return;
+
+    // Add user message to UI
+    const userMsg = document.createElement('div');
+    userMsg.style.cssText = 'background:var(--primary); color:white; padding:12px 18px; border-radius:12px; border-bottom-right-radius:2px; align-self:flex-start; max-width:85%; line-height:1.6; margin:5px 0; box-shadow:0 2px 5px rgba(0,0,0,0.1); font-weight:500;';
+    userMsg.textContent = text;
+    box.appendChild(userMsg);
+    input.value = '';
+    box.scrollTop = box.scrollHeight;
+
+    zenChatHistory.push({ role: 'user', content: text });
+
+    // Show loading bubble
+    const loadingMsg = document.createElement('div');
+    loadingMsg.style.cssText = 'background:rgba(139, 92, 246, 0.1); padding:12px 18px; border-radius:12px; border-bottom-left-radius:2px; align-self:flex-end; max-width:85%; color:var(--text-muted); font-style:italic; margin:5px 0;';
+    loadingMsg.textContent = 'جاري التفكير...';
+    box.appendChild(loadingMsg);
+    box.scrollTop = box.scrollHeight;
+
+    // Fetch from Gemini
+    let apiKey = localStorage.getItem('gemini_api_key');
+    if(!apiKey) {
+        box.removeChild(loadingMsg);
+        const errorMsg = document.createElement('div');
+        errorMsg.style.cssText = 'background:rgba(239, 68, 68, 0.1); color:#ef4444; padding:10px 15px; border-radius:12px; align-self:center; max-width:90%; text-align:center; font-size:0.9em;';
+        errorMsg.textContent = 'يرجى إدخال مفتاح API أولاً في شاشة الدردشة الرئيسية للذكاء الاصطناعي.';
+        box.appendChild(errorMsg);
+        box.scrollTop = box.scrollHeight;
+        return;
+    }
+    
+    try {
+        const contents = zenChatHistory.filter(m => m.role !== 'system').map(m => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content }]
+        }));
+        const sysMsg = zenChatHistory[0].content;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                systemInstruction: { parts: [{ text: sysMsg }] },
+                contents: contents
+            })
+        });
+
+        const data = await response.json();
+        box.removeChild(loadingMsg);
+
+        if (data.error) {
+            throw new Error(data.error.message);
+        }
+
+        const reply = data.candidates[0].content.parts[0].text;
+        zenChatHistory.push({ role: 'assistant', content: reply });
+
+        const aiMsg = document.createElement('div');
+        aiMsg.style.cssText = 'background:rgba(139, 92, 246, 0.1); padding:12px 18px; border-radius:12px; border-bottom-left-radius:2px; align-self:flex-end; max-width:85%; color:var(--text); line-height:1.6; margin:5px 0;';
+        
+        if(window.marked) {
+            aiMsg.innerHTML = marked.parse(reply);
+        } else {
+            let htmlText = reply.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            htmlText = htmlText.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            htmlText = htmlText.replace(/\n/g, '<br>');
+            aiMsg.innerHTML = htmlText;
+        }
+
+        box.appendChild(aiMsg);
+        box.scrollTop = box.scrollHeight;
+
+    } catch (err) {
+        box.removeChild(loadingMsg);
+        const errorMsg = document.createElement('div');
+        errorMsg.style.cssText = 'background:rgba(239, 68, 68, 0.1); color:#ef4444; padding:10px 15px; border-radius:12px; align-self:center; max-width:90%; text-align:center; font-size:0.9em;';
+        errorMsg.textContent = 'حدث خطأ في الاتصال بالمرشد. تأكد من الإنترنت أو مفتاح API.';
+        box.appendChild(errorMsg);
+        box.scrollTop = box.scrollHeight;
+    }
+}

@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#08080c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ECO-BEM">
+<meta name="description" content="منصة ECO-BEM الأكاديمية لشهادة التعليم المتوسط">
+<title>ECO-BEM | منصة شهادة التعليم المتوسط</title>
+<link rel="icon" type="image/png" href="./logo.png">
+<link rel="apple-touch-icon" href="./logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,700&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="./style.CSS?v=9">
+<script>window.onerror=function(m,u,l,c,e){var d=document.createElement('div');d.style.cssText='position:fixed;top:0;left:0;width:100%;background:red;color:white;z-index:9999999999;padding:20px;font-size:20px;';d.innerHTML='<b>ERROR:</b> '+m+'<br>Line: '+l+'<br>Col: '+c;if(document.body)document.body.appendChild(d);else window.addEventListener('load',function(){document.body.appendChild(d);});};</script>
+<script defer src="./lessonsData.js"></script>
+<script defer src="./annalsData_v6.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     SPLASH SCREEN
+     ═══════════════════════════════════════════════════ -->
+<div id="splash">
+  <img src="./logo.png" alt="ECO-BEM" class="splash-logo" onerror="this.style.display='none';document.getElementById('splashFallback').style.display='flex'">
+  <div id="splashFallback" style="display:none;width:140px;height:140px;border-radius:32px;background:linear-gradient(145deg,#8dc63f,#5a8a2a);align-items:center;justify-content:center;font-family:var(--font-serif);font-size:3.4rem;font-weight:900;color:#08080c;letter-spacing:-2px;box-shadow:0 20px 60px rgba(141,198,63,.55);margin-bottom:28px">EB</div>
+  <p class="splash-tag">منصة شهادة التعليم المتوسط</p>
+  <button class="splash-btn" onclick="enterApp()">
+    <span>ابدأ الرحلة</span>
+    <i class="fa-solid fa-arrow-left"></i>
+  </button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     PREMIUM OVERLAY
+     ═══════════════════════════════════════════════════ -->
+
+<!-- ═══════════════ AUTHENTICATION OVERLAY ═══════════════ -->
+<div class="overlay" id="ov-auth" style="z-index:99999;background:var(--bg)">
+  <div class="overlay-head" style="justify-content:center;border-bottom:none;padding-top:40px">
+    <h2 style="font-size:2rem"><i class="fa-solid fa-user-shield" style="color:#8dc63f"></i> بوابتك للنجاح</h2>
+  </div>
+  <div class="overlay-body" style="display:flex;align-items:center;justify-content:center;padding-top:0">
+    <div class="card" style="width:100%;max-width:400px;background:#fff;border:1px solid rgba(141,198,63,.2)">
+      <div id="auth-tabs" style="display:flex;gap:10px;margin-bottom:24px">
+        <button class="tab-sw-btn on" id="tab-login" onclick="switchAuth('login')" style="flex:1;padding:12px;border-radius:var(--r-md);font-weight:800;background:#8dc63f;color:#08080c;border:none">تسجيل الدخول</button>
+        <button class="tab-sw-btn" id="tab-register" onclick="switchAuth('register')" style="flex:1;padding:12px;border-radius:var(--r-md);font-weight:800;background:transparent;color:var(--text-muted);border:none">حساب جديد</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="form-login" onsubmit="handleLogin(event)">
+        <div style="margin-bottom:16px">
+          <label style="display:block;margin-bottom:8px;font-size:.85rem;color:var(--text-muted)">البريد الإلكتروني</label>
+          <input type="email" id="login-email" required style="width:100%;padding:12px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface);color:#fff;outline:none">
+        </div>
+        <div style="margin-bottom:24px">
+          <label style="display:block;margin-bottom:8px;font-size:.85rem;color:var(--text-muted)">كلمة المرور</label>
+          <input type="password" id="login-pass" required style="width:100%;padding:12px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface);color:#fff;outline:none">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="btn-login" style="font-size:1.1rem;padding:14px">دخول <i class="fa-solid fa-arrow-left"></i></button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="form-register" style="display:none" onsubmit="handleRegister(event)">
+        <div style="margin-bottom:16px">
+          <label style="display:block;margin-bottom:8px;font-size:.85rem;color:var(--text-muted)">اسمك الحقيقي (أو لقبك)</label>
+          <input type="text" id="reg-name" required style="width:100%;padding:12px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface);color:#fff;outline:none">
+        </div>
+        <div style="margin-bottom:16px">
+          <label style="display:block;margin-bottom:8px;font-size:.85rem;color:var(--text-muted)">البريد الإلكتروني</label>
+          <input type="email" id="reg-email" required style="width:100%;padding:12px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface);color:#fff;outline:none">
+        </div>
+        <div style="margin-bottom:24px">
+          <label style="display:block;margin-bottom:8px;font-size:.85rem;color:var(--text-muted)">كلمة المرور</label>
+          <input type="password" id="reg-pass" required style="width:100%;padding:12px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface);color:#fff;outline:none">
+        </div>
+        <button type="submit" class="btn btn-mint btn-block" id="btn-register" style="font-size:1.1rem;padding:14px">إنشاء حساب <i class="fa-solid fa-user-plus"></i></button>
+      </form>
+      
+    </div>
+  </div>
+</div>
+
+<div class="premium" id="premium">
+  <button class="premium-close" onclick="togglePremium(false)">
+    <i class="fa-solid fa-xmark"></i>
+  </button>
+  <div class="premium-content">
+    <div class="premium-icon"><i class="fa-solid fa-crown"></i></div>
+    <div class="premium-badge">ECO-BEM PREMIUM</div>
+    <h2 id="premium-title">هذه المادة متوفرة في النسخة الشاملة</h2>
+    <ul class="premium-list">
+      <li><i class="fa-solid fa-check"></i> جميع مواد BEM التسعة الرسمية</li>
+      <li><i class="fa-solid fa-check"></i> بنك أسئلة ضخم مع تصحيح منهجي</li>
+      <li><i class="fa-solid fa-check"></i> فيديوهات دروس HD</li>
+      <li><i class="fa-solid fa-check"></i> معلم AI بلا حدود</li>
+      <li><i class="fa-solid fa-check"></i> مزامنة سحابية كاملة</li>
+    </ul>
+    <button class="premium-cta" onclick="openPayments()">
+      <span>عرض الخطط والدفع</span>
+      <i class="fa-solid fa-arrow-left"></i>
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     DRAWER (SIDEBAR)
+     ═══════════════════════════════════════════════════ -->
+<div class="backdrop" id="backdrop" onclick="toggleDrawer(false)"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-profile">
+    <img src="./logo.png" alt="ECO-BEM" class="drawer-logo" onerror="this.style.display='none'">
+    <div class="drawer-avatar" onclick="editUserName()" id="drawer-avatar">س</div>
+    <h3 id="drawer-name">سيدعلي شطي</h3>
+    <p>السنة الرابعة متوسط</p>
+  </div>
+  <div class="drawer-menu">
+    <div class="drawer-item" onclick="openOverlay('rank');toggleDrawer(false)">
+      <i class="fa-solid fa-trophy" style="color:#a4d466"></i><span>الأبطال</span>
+    </div>
+    <div class="drawer-item" onclick="openOverlay('account');toggleDrawer(false)">
+      <i class="fa-solid fa-user"></i><span>الملف الشخصي</span>
+    </div>
+    <div class="drawer-item" onclick="openOverlay('notif');toggleDrawer(false)">
+      <i class="fa-solid fa-bell"></i><span>الإشعارات</span>
+    </div>
+    <div class="drawer-item" onclick="openOverlay('sync');toggleDrawer(false)">
+      <i class="fa-solid fa-arrows-rotate"></i><span>البيانات والمزامنة</span>
+    </div>
+    <div class="drawer-item" onclick="openPayments();toggleDrawer(false)">
+      <i class="fa-solid fa-crown" style="color:#fbbf24"></i><span>الترقية إلى PRO</span>
+    </div>
+    <div class="drawer-item" onclick="toggleTheme();toggleDrawer(false)">
+      <i class="fa-solid fa-moon"></i><span>تغيير المظهر</span>
+    </div>
+    <div class="drawer-item" onclick="openOverlay('stats2');toggleDrawer(false)">
+      <i class="fa-solid fa-chart-line"></i><span>التحليلات البيانية</span>
+    </div>
+    <div class="drawer-item" onclick="toast('🎧 واتساب: 0697454244','info');toggleDrawer(false)">
+      <i class="fa-solid fa-headset"></i><span>الدعم الفني</span>
+    </div>
+    <div style="flex:1"></div>
+    <div class="drawer-item danger" onclick="confirmLogout()">
+      <i class="fa-solid fa-right-from-bracket"></i><span>تسجيل الخروج</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════════════════════════════
+     APP SHELL
+     ═══════════════════════════════════════════════════ -->
+<div class="app">
+  <header class="topbar">
+    <div class="tb-right">
+      <button class="icon-btn" onclick="toggleDrawer(true)" aria-label="القائمة">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+    </div>
+    <div class="brand">
+      <img src="./logo.png" alt="ECO-BEM" onerror="this.outerHTML='<span style=\'font-family:var(--font-serif);font-size:1.3rem;font-weight:900;color:#a4d466\'>ECO-BEM</span>'">
+    </div>
+    <div class="tb-left">
+      <button class="pill" onclick="openOverlay('account')" style="gap:12px; padding:6px 14px;">
+        <div style="display:flex;align-items:center;gap:6px;color:#fbbf24;" title="رصيد العملات الذهبية">
+          <i class="fa-solid fa-coins"></i><span style="font-weight:900;font-size:1.05rem;" id="ui-coins">0</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;color:#f97316;" title="شعلة الاستمرارية">
+          <i class="fa-solid fa-fire"></i><span style="font-weight:900;font-size:1.05rem;" id="ui-streak">0</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;border-right:1px solid rgba(141,198,63,.3);padding-right:12px;">
+          <span class="avatar-mini" id="ui-avatar">س</span><span class="hide-m">حسابي</span>
+        </div>
+      </button>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- ═══════════════ HOME TAB ═══════════════ -->
+    <section class="tab on" id="tab-home">
+      <div class="hero">
+        <div class="hero-kicker">منصة أكاديمية رسمية</div>
+            <p>بيئة تعليمية متكاملة لشهادة التعليم المتوسط.</p>  
+            <p> تحصيل معرفي رصين، واستقرار نفسي، وتقنية حديثة.</p>
+      </div>
+
+      <!-- Daily Quests -->
+      <div class="section-label">تحديات اليوم 🎯</div>
+      <div class="card" style="margin-bottom:24px;border:1px solid rgba(251,191,36,.3);background:linear-gradient(to bottom, rgba(251,191,36,.05), transparent)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 style="font-size:1.1rem;margin:0"><i class="fa-solid fa-bolt" style="color:#fbbf24"></i> طاقة اليوم</h3>
+          <span id="quests-progress" style="font-weight:700;color:#fbbf24;background:rgba(251,191,36,.1);padding:4px 10px;border-radius:20px;font-size:0.8rem">0/3 منجزة</span>
+        </div>
+        <div id="daily-quests-container" style="display:flex;flex-direction:column;gap:10px">
+          <!-- المهام ستُحقن هنا عبر JavaScript -->
+        </div>
+      </div>
+
+      <div class="section-label">رفيقك النفسي</div>
+      <div class="card mint">
+        <div class="card-head">
+          <div class="card-icon mint"><i class="fa-solid fa-shield-heart"></i></div>
+          <div>
+            <div class="card-title">مساحة رفيقي</div>
+            <div class="card-sub">استقرارك النفسي أولويتنا</div>
+          </div>
+        </div>
+        <p style="color:var(--text-muted);font-size:.9rem;line-height:1.75;margin-bottom:6px">
+          أدوات عملية لتخفيف قلق الامتحان، واستعادة التركيز، وبناء عقلية هادئة قبل يوم BEM.
+        </p>
+        <div class="grid-3" style="margin:20px 0">
+          <div class="tile" style="cursor:default">
+            <div class="tile-icon" style="background:rgba(16,185,129,.15);color:#34d399">
+              <i class="fa-solid fa-wind"></i>
+            </div>
+            <h4 style="font-size:.92rem">تنفس صندوقي</h4>
+            <p style="font-size:.78rem">4-4-4-4 لتهدئة العقل</p>
+          </div>
+          <div class="tile" style="cursor:default">
+            <div class="tile-icon" style="background:rgba(141,198,63,.15);color:#a4d466">
+              <i class="fa-solid fa-stopwatch"></i>
+            </div>
+            <h4 style="font-size:.92rem">مؤقّت بومودورو</h4>
+            <p style="font-size:.78rem">25 دقيقة تركيز مركّز</p>
+          </div>
+          <div class="tile" style="cursor:default">
+            <div class="tile-icon" style="background:rgba(251,191,36,.15);color:#fbbf24">
+              <i class="fa-solid fa-lightbulb"></i>
+            </div>
+            <h4 style="font-size:.92rem">ترياق الأفكار</h4>
+            <p style="font-size:.78rem">تحويل القلق إلى طاقة</p>
+          </div>
+        </div>
+        <button class="btn btn-mint" onclick="openOverlay('zen')">
+          <i class="fa-solid fa-arrow-left"></i> دخول ملاذ رفيقي
+        </button>
+      </div>
+
+      <div class="section-label">واحة التدريب</div>
+      <div class="grid-2">
+        <div class="tile" onclick="openOverlay('flash')">
+          <div class="tile-icon" style="background:rgba(141,198,63,.15);color:#a4d466">
+            <i class="fa-solid fa-clone"></i>
+          </div>
+          <h4>التكرار المتباعد</h4>
+          <p>بطاقات ذكية تُراجع مفهومك تدريجياً وتمنع النسيان.</p>
+        </div>
+        <div class="tile" onclick="openOverlay('quiz')">
+          <div class="tile-icon" style="background:rgba(14,165,233,.15);color:#38bdf8">
+            <i class="fa-solid fa-circle-question"></i>
+          </div>
+          <h4>اختبارات قصيرة</h4>
+          <p>أسئلة بمستوى امتحانات BEM الرسمية.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ STATS TAB ═══════════════ -->
+    <section class="tab" id="tab-stats">
+      <div class="hero">
+        <div class="hero-kicker">لوحة الإنجاز</div>
+        <h1>تقدّمك، <em>رقماً برقم</em>.</h1>
+      </div>
+      <div id="dashboard-content">
+        <div style="text-align:center;padding:40px;color:var(--text-muted)">
+          <i class="fa-solid fa-spinner fa-spin"></i> جاري التحميل...
+        </div>
+      </div>
+    </section>
+
+    
+  
+
+    
+  <!-- ═══════════════ ANNALS VIEWER OVERLAY ═══════════════ -->
+  <div class="overlay" id="ov-annals-viewer" style="z-index: 10002;">
+    <div class="overlay-header">
+      <button class="overlay-close" onclick="closeAnnalsViewer()" style="margin-left:15px"><i class="fa-solid fa-arrow-right"></i> رجوع</button>
+      <div class="overlay-title" id="annals-viewer-title" style="flex:1;text-align:left;font-size:1.1rem;">الحولية</div>
+    </div>
+    <div class="overlay-body" style="padding:0;display:flex;flex-direction:column;background:var(--bg);">
+      
+      <!-- Subject Images -->
+      <div id="annals-subject-images" style="padding:15px;background:#fff;">
+        <!-- Images injected here -->
+      </div>
+
+      <!-- Attempt Area -->
+      <div style="width: 100%; display: flex; flex-direction: column; align-items: center; background: #fff; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 15px 0;">
+        <div style="width: 100%; padding: 0 15px;">
+          <h4 style="margin-bottom:15px;color:var(--text);display:flex;align-items:center;justify-content:space-between; width: 100%;">
+            <span><i class="fa-solid fa-pen-nib" style="color:var(--mint)"></i> مساحة المحاولة</span>
+          </h4>
+          <textarea id="annals-attempt-area" rows="14" placeholder="✍️ اكتب محاولتك هنا..." style="width: 100%; max-width: 100%; padding: 20px; border-radius: 12px; border: 2px solid #10b981; background: #f0fdf4; color: #0f172a; font-family: inherit; font-size: 1.1rem; resize: vertical; margin-bottom: 15px; box-shadow: inset 0 4px 6px rgba(0,0,0,0.05); outline: none; box-sizing: border-box;"></textarea>
+          <button class="btn btn-mint btn-block" id="annals-show-solution-btn" onclick="showAnnalsSolution()" style="width: 100%; font-size: 1.1rem; padding: 12px;">
+            <i class="fa-solid fa-eye"></i> عرض التصحيح النموذجي
+          </button>
+        </div>
+      </div>
+
+      <!-- Solution Images -->
+      <div id="annals-solution-images" style="padding:15px;background:#fff;display:none;">
+        <h4 style="text-align:center;color:#10b981;margin-bottom:20px;padding-top:10px;border-top:2px dashed #10b981;">التصحيح النموذجي</h4>
+        <!-- Images injected here -->
+      </div>
+      
+    </div>
+  </div>
+
+    <!-- ═══════════════ SUBJECTS TAB ═══════════════ -->
+    <section class="tab" id="tab-subs">
+      <div class="hero">
+        <div class="hero-kicker">فضاء المواد — المقطع الأول</div>
+        <h1>اختر مادتك، <em>وابدأ فوراً</em>.</h1>
+        <p>كل مادة تحتوي على دروس المقطع الأول الرسمية: تشخيص، مفهوم، أمثلة، تدرّج، تمارين، وحلول دقيقة.</p>
+      </div>
+
+      <div class="section-label">متاح الآن — المقطع الأول الرسمي 2025/2026</div>
+      <div class="grid-2" style="margin-bottom:24px">
+        <div class="subject" onclick="openLessons('ar')">
+          <div class="subject-left">
+            <div class="subject-icon" style="background:rgba(141,198,63,.15);color:#a4d466">
+              <i class="fa-solid fa-feather-pointed"></i>
+            </div>
+            <div>
+              <div class="subject-name">اللغة العربية</div>
+              <div class="subject-desc">5 موارد — المقطع الأول: قضايا اجتماعية</div>
+            </div>
+          </div>
+          <div class="subject-arrow"><i class="fa-solid fa-arrow-left"></i></div>
+        </div>
+        <div class="subject mint" onclick="openLessons('math')">
+          <div class="subject-left">
+            <div class="subject-icon" style="background:rgba(16,185,129,.15);color:#34d399">
+              <i class="fa-solid fa-calculator"></i>
+            </div>
+            <div>
+              <div class="subject-name">الرياضيات</div>
+              <div class="subject-desc">6 دروس — المقطع الأول: الأعداد والجذور</div>
+            </div>
+          </div>
+          <div class="subject-arrow"><i class="fa-solid fa-arrow-left"></i></div>
+        </div>
+      </div>
+
+      <div class="section-label">متوفر في PRO</div>
+      <div class="grid-2">
+        <div class="subject" onclick="togglePremium(true,'اللغة الفرنسية')">
+          <div class="subject-left">
+            <div class="subject-icon" style="background:var(--surface);color:var(--text-muted)">
+              <i class="fa-solid fa-language"></i>
+            </div>
+            <div class="subject-name" style="color:var(--text-muted)">اللغة الفرنسية</div>
+          </div>
+          <div class="subject-arrow"><i class="fa-solid fa-lock"></i></div>
+        </div>
+        <div class="subject" onclick="togglePremium(true,'اللغة الإنجليزية')">
+          <div class="subject-left">
+            <div class="subject-icon" style="background:var(--surface);color:var(--text-muted)">
+              <i class="fa-solid fa-globe"></i>
+            </div>
+            <div class="subject-name" style="color:var(--text-muted)">اللغة الإنجليزية</div>
+          </div>
+          <div class="subject-arrow"><i class="fa-solid fa-lock"></i></div>
+        </div>
+        <div class="subject" onclick="togglePremium(true,'علوم الطبيعة والحياة')">
+          <div class="subject-left">
+            <div class="subject-icon" style="background:var(--surface);color:var(--text-muted)">
+              <i class="fa-solid fa-dna"></i>
+            </div>
+            <div class="subject-name" style="color:var(--text-muted)">علوم الطبيعة والحياة</div>
+          </div>
+          <div class="subject-arrow"><i class="fa-solid fa-lock"></i></div>
+        </div>
+        <div class="subject" onclick="togglePremium(true,'العلوم الفيزيائية')">
+          <div class="subject-left">
+            <div class="subject-icon" style="background:var(--surface);color:var(--text-muted)">
+              <i class="fa-solid fa-atom"></i>
+            </div>
+            <div class="subject-name" style="color:var(--text-muted)">العلوم الفيزيائية</div>
+          </div>
+          <div class="subject-arrow"><i class="fa-solid fa-lock"></i></div>
+        </div>
+        <div class="subject" onclick="togglePremium(true,'التاريخ والجغرافيا')">
+          <div class="subject-left">
+            <div class="subject-icon" style="background:var(--surface);color:var(--text-muted)">
+              <i class="fa-solid fa-landmark"></i>
+            </div>
+            <div class="subject-name" style="color:var(--text-muted)">التاريخ والجغرافيا</div>
+          </div>
+          <div class="subject-arrow"><i class="fa-solid fa-lock"></i></div>
+        </div>
+        <div class="subject" onclick="togglePremium(true,'التربية الإسلامية')">
+          <div class="subject-left">
+            <div class="subject-icon" style="background:var(--surface);color:var(--text-muted)">
+              <i class="fa-solid fa-mosque"></i>
+            </div>
+            <div class="subject-name" style="color:var(--text-muted)">التربية الإسلامية</div>
+          </div>
+          <div class="subject-arrow"><i class="fa-solid fa-lock"></i></div>
+        </div>
+        <div class="subject" onclick="togglePremium(true,'التربية المدنية')">
+          <div class="subject-left">
+            <div class="subject-icon" style="background:var(--surface);color:var(--text-muted)">
+              <i class="fa-solid fa-scale-balanced"></i>
+            </div>
+            <div class="subject-name" style="color:var(--text-muted)">التربية المدنية</div>
+          </div>
+          <div class="subject-arrow"><i class="fa-solid fa-lock"></i></div>
+        </div>
+      </div>
+    </section>
+    <!-- ═══════════════ LESSONS TAB ═══════════════ -->
+    <section class="tab" id="tab-lessons">
+      <div class="hero">
+        <div class="hero-kicker">المقطع الأول — الدروس</div>
+        <h1>مسار تعليمي <em>تفاعلي</em>.</h1>
+        <p>كل درس مبني على 6 خطوات: تشخيص، مفهوم، أمثلة، تدرّج، تمارين، وحلول دقيقة.</p>
+      </div>
+      <div class="tabs-switch" style="display:flex;gap:10px;background:#fff;border:1px solid var(--border);border-radius:var(--r-lg);padding:5px;margin-bottom:24px">
+        <button class="tab-sw-btn on" id="sw-ar" onclick="switchLesson('ar')" style="flex:1;padding:12px;border-radius:var(--r-md);font-weight:800;font-size:.88rem;background:#8dc63f;color:#08080c;display:flex;align-items:center;justify-content:center;gap:8px;border:none;transition:all .2s ease">
+          <i class="fa-solid fa-feather-pointed"></i> العربية
+        </button>
+        <button class="tab-sw-btn" id="sw-math" onclick="switchLesson('math')" style="flex:1;padding:12px;border-radius:var(--r-md);font-weight:800;font-size:.88rem;background:transparent;color:var(--text-muted);display:flex;align-items:center;justify-content:center;gap:8px;border:none;transition:all .2s ease">
+          <i class="fa-solid fa-calculator"></i> الرياضيات
+        </button>
+      </div>
+      <div id="lessons-ar"></div>
+      <div id="lessons-math" style="display:none"></div>
+    </section>
+
+    <!-- ═══════════════ ARCHIVE TAB ═══════════════ -->
+    <section class="tab" id="tab-archive">
+      <div class="hero">
+        <div class="hero-kicker">بنك شهادة التعليم المتوسط</div>
+        <h1>حوليات BEM <em>التفاعلية</em>.</h1>
+        <p>مواضيع رسمية، مساحة للمحاولة، وتصحيح نموذجي مدمج.</p>
+      </div>
+      
+      <div class="section-label">اختر المادة لتصفح حولياتها</div>
+      <div id="annals-subject-list" class="grid-2">
+        <!-- populated by JS -->
+      </div>
+    </section>
+
+    <!-- ═══════════════ PRICING TAB ═══════════════ -->
+    <section class="tab" id="tab-pricing">
+      <div class="hero">
+        <div class="hero-kicker">خطط الاشتراك</div>
+        <h1>اختر خطتك، <em>وادفع بأمان</em>.</h1>
+      </div>
+      <div class="grid-2" style="margin-bottom:24px">
+        
+        <!-- FREE PLAN -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-icon" style="background:var(--surface);color:var(--text-muted)">
+              <i class="fa-solid fa-user"></i>
+            </div>
+            <div>
+              <div class="card-title">مجاني</div>
+              <div class="card-sub">للبداية والاستكشاف</div>
+            </div>
+          </div>
+          <div style="font-size:2rem;font-weight:900;margin:20px 0 8px">
+            0 <span style="font-size:.9rem;font-weight:600;color:var(--text-muted)">دج / شهر</span>
+          </div>
+          <ul style="list-style:none;padding:0;margin:20px 0;display:flex;flex-direction:column;gap:14px;font-size:0.9rem">
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> مادتان فقط (عربية ورياضيات)</li>
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> مواضيع BEM (آخر سنتين فقط)</li>
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> مساحة للمحاولة وحفظ الإجابات</li>
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> معلم الذكاء الاصطناعي (محدود)</li>
+            <li style="color:var(--text-muted)"><i class="fa-solid fa-xmark" style="color:#ef4444;width:24px;text-align:center"></i> إحصائيات لمتابعة التطور (مقفلة)</li>
+            <li style="color:var(--text-muted)"><i class="fa-solid fa-xmark" style="color:#ef4444;width:24px;text-align:center"></i> باقي المواد السبعة (مقفلة)</li>
+            <li style="color:var(--text-muted)"><i class="fa-solid fa-xmark" style="color:#ef4444;width:24px;text-align:center"></i> ملخصات وخرائط ذهنية (مقفلة)</li>
+            <li style="color:var(--text-muted)"><i class="fa-solid fa-xmark" style="color:#ef4444;width:24px;text-align:center"></i> بنك مواضيع مقترحة (مقفلة)</li>
+          </ul>
+          <button class="btn btn-ghost btn-block" disabled>خطتك الحالية</button>
+        </div>
+
+        <!-- PRO PLAN -->
+        <div class="card gold" style="border:2px solid #fbbf24;position:relative;margin-top:20px;padding-top:28px;">
+          <div style="position:absolute;top:-15px;left:50%;transform:translateX(-50%);background:#fbbf24;color:#08080c;padding:6px 20px;border-radius:20px;font-size:.85rem;font-weight:900;white-space:nowrap;box-shadow:0 4px 12px rgba(251,191,36,0.4);z-index:10;letter-spacing:0.5px;">⭐ الأكثر شعبية ⭐</div>
+          <div class="card-head">
+            <div class="card-icon gold"><i class="fa-solid fa-crown"></i></div>
+            <div>
+              <div class="card-title">PRO</div>
+              <div class="card-sub">للتفوق وضمان النجاح</div>
+            </div>
+          </div>
+          <div style="font-size:2rem;font-weight:900;margin:20px 0 8px">
+            1,500 <span style="font-size:.9rem;font-weight:600;color:var(--text-muted)">دج / شهر</span>
+          </div>
+          <ul style="list-style:none;padding:0;margin:20px 0;display:flex;flex-direction:column;gap:14px;font-size:0.9rem">
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> <strong>وصول كامل لجميع المواد التسعة</strong></li>
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> أرشيف BEM الشامل لكل السنوات</li>
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> مساحة لا محدودة لحفظ الإجابات</li>
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> معلم ذكاء اصطناعي (AI) متاح 24/7</li>
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> إحصائيات لمتابعة التطور ونقاط الضعف</li>
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> مكتبة شاملة للدروس والتمارين</li>
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> ملخصات جاهزة وخرائط ذهنية للدروس</li>
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> بنك مواضيع مقترحة مع الحل المفصل</li>
+          </ul>
+          <div style="display:flex;gap:12px;flex-direction:column">
+            <button class="btn btn-primary btn-block" style="white-space:normal;height:auto;padding:12px;" onclick="contactForPayment('monthly')">
+              <i class="fa-solid fa-crown" style="margin-bottom:4px;display:block;font-size:1.2rem;"></i> 
+              <span style="font-weight:bold;">اشتراك شهري</span><br>
+              <small style="opacity:0.9">(1,500 دج)</small>
+            </button>
+            <button class="btn btn-mint btn-block" style="white-space:normal;height:auto;padding:12px;" onclick="contactForPayment('yearly')">
+              <i class="fa-solid fa-star" style="margin-bottom:4px;display:block;font-size:1.2rem;"></i> 
+              <span style="font-weight:bold;">اشتراك الموسم الدراسي</span><br>
+              <small style="opacity:0.9">وفر 6,500 دج! ادفع 7,000 دج فقط</small>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- ═══════════════ BOTTOM NAV ═══════════════ -->
+  <nav class="nav">
+    <button class="nav-item on" id="nav-home" onclick="go('tab-home','nav-home')">
+      <i class="fa-solid fa-house"></i><span>الرئيسية</span>
+    </button>
+    <button class="nav-item" id="nav-stats" onclick="go('tab-stats','nav-stats')">
+      <i class="fa-solid fa-chart-pie"></i><span>إحصائيات</span>
+    </button>
+    <div class="center-nav">
+      <button class="center-btn" onclick="openOverlay('teacher')" aria-label="المعلم الذكي">
+        <i class="fa-solid fa-robot"></i>
+      </button>
+    </div>
+    <button class="nav-item" id="nav-subs" onclick="go('tab-subs','nav-subs')">
+      <i class="fa-solid fa-cubes-stacked"></i><span>المواد</span>
+    </button>
+    <button class="nav-item" id="nav-archive" onclick="go('tab-archive','nav-archive')">
+      <i class="fa-solid fa-building-columns"></i><span>بنك BEM</span>
+    </button>
+  </nav>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     OVERLAYS
+     ═══════════════════════════════════════════════════ -->
+
+<!-- LMS Learning Path -->
+<div class="overlay" id="ov-lp">
+  <div class="overlay-head">
+    <button class="back" onclick="closeOverlay('lp')">
+      <i class="fa-solid fa-arrow-right"></i>
+    </button>
+    <h2 id="lp-header">مسار الدرس</h2>
+    <button class="btn btn-mint" style="margin-right:auto;padding:6px 12px;font-size:0.8rem;display:flex;align-items:center;gap:6px;border-radius:20px;border:none;cursor:pointer" onclick="askTeacherAboutLesson()">
+      <i class="fa-solid fa-robot"></i> اسأل المعلم
+    </button>
+  </div>
+  <div class="overlay-body">
+    <div class="lp-bar"><div class="lp-fill" id="lp-fill"></div></div>
+    <div id="lp-step-diag" class="lp-step"></div>
+    <div id="lp-step-concept" class="lp-step"></div>
+    <div id="lp-step-examples" class="lp-step"></div>
+    <div id="lp-step-progression" class="lp-step"></div>
+    <div id="lp-step-exercises" class="lp-step"></div>
+    <div id="lp-step-solutions" class="lp-step"></div>
+    <div id="lp-step-result" class="lp-step"></div>
+    <button class="lp-next" id="lp-next" onclick="nextLp()">
+      متابعة <i class="fa-solid fa-arrow-left"></i>
+    </button>
+  </div>
+</div>
+
+<!-- Zen Wellness -->
+<div class="overlay" id="ov-zen">
+  <div class="overlay-head">
+    <button class="back" onclick="closeOverlay('zen')">
+      <i class="fa-solid fa-arrow-right"></i>
+    </button>
+    <h2><i class="fa-solid fa-shield-heart"></i> ملاذ رفيقي</h2>
+  </div>
+  <div class="overlay-body">
+    <div class="zen-block">
+      <div class="zen-head"><i class="fa-solid fa-heart-pulse"></i><h3>كيف تشعر الآن؟</h3></div>
+      <div class="mood-grid">
+        <button class="mood" onclick="pickMood(this,'fear')">😟 خائف من النسيان</button>
+        <button class="mood" onclick="pickMood(this,'scattered')">🌀 مشتت ذهنياً</button>
+        <button class="mood" onclick="pickMood(this,'time')">⏳ ضغط الوقت يربكني</button>
+        <button class="mood" onclick="pickMood(this,'ready')">🚀 متحمس وطاقتي عالية</button>
+      </div>
+      <div class="mood-response" id="mood-resp">
+        <div id="mood-text"></div>
+        <button class="btn btn-mint" style="margin-top:14px" onclick="nextMood()">
+          <span>المتابعة</span><i class="fa-solid fa-arrow-left"></i>
+        </button>
+      </div>
+    </div>
+    <div class="zen-block">
+      <div class="zen-head"><i class="fa-solid fa-wind"></i><h3>التنفس الصندوقي</h3></div>
+      <div class="breath-stage">
+        <div class="breath-ring"><div class="breath-ball" id="ball"></div></div>
+        <div class="breath-label" id="breath-label">جاهز؟</div>
+        <button class="btn btn-mint" id="breath-btn" onclick="toggleBreath()">ابدأ الجلسة</button>
+      </div>
+    </div>
+    <div class="zen-block">
+      <div class="zen-head"><i class="fa-solid fa-stopwatch"></i><h3>مؤقّت التركيز</h3></div>
+      <div class="pomo-display" id="pomo">25:00</div>
+      <div class="pomo-btns">
+        <button class="btn btn-primary" id="pomo-btn" onclick="togglePomo()">بدء</button>
+        <button class="btn btn-ghost" onclick="resetPomo()">إعادة ضبط</button>
+      </div>
+    </div>
+    <div class="zen-block">
+      <div class="zen-head"><i class="fa-solid fa-lightbulb"></i><h3>ترياق الأفكار السلبية</h3></div>
+      <div class="antidote" onclick="this.classList.toggle('on')">
+        <div class="fear"><i class="fa-solid fa-triangle-exclamation"></i> "إذا تعثرت في التمرين الأول، الامتحان كله ضاع!"</div>
+        <div class="cure">💡 <strong>ترياق:</strong> BEM مبني على تجزئة العلامات؛ كل خطوة صحيحة تمنحك درجات جزئية!</div>
+      </div>
+      <div class="antidote" onclick="this.classList.toggle('on')">
+        <div class="fear"><i class="fa-solid fa-triangle-exclamation"></i> "أشعر أنني نسيت كل شيء!"</div>
+        <div class="cure">💡 <strong>ترياق:</strong> خداع ذهني عابر. تنفس بعمق، ستسترجع ذاكرتك كامل المعلومات.</div>
+      </div>
+      <div class="antidote" onclick="this.classList.toggle('on')">
+        <div class="fear"><i class="fa-solid fa-triangle-exclamation"></i> "زملائي أسرع مني!"</div>
+        <div class="cure">💡 <strong>ترياق:</strong> العبرة بالإتقان لا بالسرعة.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Flashcards -->
+<div class="overlay" id="ov-flash">
+    <div class="overlay-head">
+      <button class="back" onclick="closeOverlay('flash')">
+        <i class="fa-solid fa-arrow-right"></i>
+      </button>
+      <h2><i class="fa-solid fa-clone"></i> التكرار المتباعد</h2>
+    </div>
+    <div class="overlay-body" style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
+      <div id="flash-setup" style="width:100%; text-align:center; padding: 20px;">
+        <h3 style="margin-bottom: 15px; color: var(--text);">اختر المادة لتوليد البطاقات</h3>
+        <select id="flash-subject" style="width: 80%; padding: 12px; margin-bottom: 20px; border-radius: var(--r-md); background: var(--surface); color: var(--text); border: 1px solid var(--border);">
+            <option value="اللغة العربية">اللغة العربية</option>
+            <option value="الرياضيات">الرياضيات</option>
+            <option value="العلوم الفيزيائية">العلوم الفيزيائية</option>
+            <option value="علوم الطبيعة والحياة">علوم الطبيعة والحياة</option>
+            <option value="التربية الإسلامية">التربية الإسلامية</option>
+            <option value="التربية المدنية">التربية المدنية</option>
+            <option value="التاريخ والجغرافيا">التاريخ والجغرافيا</option>
+            <option value="اللغة الإنجليزية">اللغة الإنجليزية</option>
+            <option value="اللغة الفرنسية">اللغة الفرنسية</option>
+        </select><br>
+        <button class="btn btn-primary" style="width: 80%;" onclick="startAIFlashcards()">توليد البطاقات <i class="fa-solid fa-wand-magic-sparkles"></i></button>
+      </div>
+
+      <div id="flash-loading" style="display:none; width:100%; text-align:center; padding: 40px 20px;">
+        <i class="fa-solid fa-spinner fa-spin" style="font-size: 3rem; color: var(--lime-500); margin-bottom: 20px;"></i>
+        <h3 style="color: var(--lime-400);">جاري توليد بطاقات ذكية...</h3>
+      </div>
+
+      <div id="flash-play" style="display:none; width: 100%; max-width: 400px;">
+          <div class="flashcard" id="fc" onclick="flipCard()">
+            <div class="flashcard-tag" id="fc-tag">مفهوم</div>
+            <div class="flashcard-content" id="fc-text">...</div>
+            <div class="flashcard-hint" id="fc-hint">اضغط للقلب</div>
+          </div>
+          <div class="flash-controls" style="margin-top: 20px; justify-content: center; gap: 15px; display: flex;">
+            <button class="btn btn-ghost" onclick="prevCard()">
+              <i class="fa-solid fa-arrow-right"></i> السابق
+            </button>
+            <button class="btn btn-primary" onclick="nextCard()">
+              التالي <i class="fa-solid fa-arrow-left"></i>
+            </button>
+          </div>
+          <div id="flash-progress" style="text-align:center; margin-top: 15px; font-weight: bold; color: var(--text-muted);"></div>
+      </div>
+      
+      <div id="flash-result" style="display:none; width:100%; text-align:center; padding: 40px 20px;">
+        <h2 style="color: var(--lime-500); margin-bottom: 10px;">عمل رائع! 🎉</h2>
+        <p style="color: var(--text-muted); margin-bottom: 20px;">لقد أكملت مراجعة هذه المفاهيم بنجاح.</p>
+        <div style="font-size: 2rem; font-weight: bold; color: var(--gold-400); margin-bottom: 20px;">+50 XP</div>
+        <button class="btn btn-primary" onclick="resetFlashcards()">مراجعة مادة أخرى</button>
+      </div>
+    </div>
+</div>
+<div class="overlay" id="ov-quiz">
+    <div class="overlay-head">
+      <button class="back" onclick="closeOverlay('quiz')">
+        <i class="fa-solid fa-arrow-right"></i>
+      </button>
+      <h2><i class="fa-solid fa-circle-question"></i> اختبارات قصيرة</h2>
+    </div>
+    <div class="overlay-body">
+      
+      <div id="quiz-setup" style="width:100%; text-align:center; padding: 20px;">
+        <h3 style="margin-bottom: 15px; color: var(--text);">اختر المادة للاختبار</h3>
+        <select id="quiz-subject" style="width: 80%; padding: 12px; margin-bottom: 20px; border-radius: var(--r-md); background: var(--surface); color: var(--text); border: 1px solid var(--border);">
+            <option value="اللغة العربية">اللغة العربية</option>
+            <option value="الرياضيات">الرياضيات</option>
+            <option value="العلوم الفيزيائية">العلوم الفيزيائية</option>
+            <option value="علوم الطبيعة والحياة">علوم الطبيعة والحياة</option>
+            <option value="التربية الإسلامية">التربية الإسلامية</option>
+            <option value="التربية المدنية">التربية المدنية</option>
+            <option value="التاريخ والجغرافيا">التاريخ والجغرافيا</option>
+            <option value="اللغة الإنجليزية">اللغة الإنجليزية</option>
+            <option value="اللغة الفرنسية">اللغة الفرنسية</option>
+        </select><br>
+        <button class="btn btn-primary" style="width: 80%;" onclick="startAIQuiz()">توليد الاختبار <i class="fa-solid fa-wand-magic-sparkles"></i></button>
+      </div>
+
+      <div id="quiz-loading" style="display:none; width:100%; text-align:center; padding: 40px 20px;">
+        <i class="fa-solid fa-spinner fa-spin" style="font-size: 3rem; color: var(--emerald-500); margin-bottom: 20px;"></i>
+        <h3 style="color: var(--emerald-400);">جاري بناء أسئلة ذكية...</h3>
+      </div>
+
+      <div class="quiz-q" id="quiz-box" style="display:none;">
+        <div id="quiz-progress-text" style="color:var(--text-muted); font-size: 0.9rem; margin-bottom: 10px;"></div>
+        <h3 id="quiz-title" style="margin-bottom: 20px; line-height: 1.6;">...</h3>
+        <div id="quiz-opts"></div>
+      </div>
+      
+      <div class="quiz-q" id="quiz-result" style="display:none;text-align:center">
+        <h2 style="color: var(--lime-500); margin-bottom: 10px;">اكتمل الاختبار!</h2>
+        <h3 id="quiz-score" style="color:#34d399; margin-bottom: 15px;"></h3>
+        <div id="quiz-xp" style="font-size: 2rem; font-weight: bold; color: var(--gold-400); margin-bottom: 20px;"></div>
+        <button class="btn btn-primary" style="margin-top:20px" onclick="resetQuiz()">اختبار مادة أخرى</button>
+      </div>
+    </div>
+</div>
+  
+  <!-- AI Teacher -->
+<div class="overlay" id="ov-teacher">
+  <div class="overlay-head">
+    <button class="back" onclick="closeOverlay('teacher')">
+      <i class="fa-solid fa-arrow-right"></i>
+    </button>
+    <h2><i class="fa-solid fa-robot"></i> المعلم الذكي AI</h2>
+  </div>
+  <div class="overlay-body">
+    <div class="chat-wrap">
+      <div class="chat-list" id="chat">
+        <div class="bubble ai">
+          <strong>أهلاً بك يا بطل! 🎓</strong><br>
+          اطرح عليّ أي سؤال حول دروس المقطع الأول. سأشرح لك بأمثلة من المنهج الجزائري.
+        </div>
+      </div>
+      <div class="chat-form">
+        <input type="text" id="chat-in" placeholder="اسأل معلمك الذكي..." onkeypress="if(event.key==='Enter')sendAIMessage()">
+        <button onclick="sendAIMessage()">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Ranking -->
+<div class="overlay" id="ov-rank">
+  <div class="overlay-head">
+    <button class="back" onclick="closeOverlay('rank')">
+      <i class="fa-solid fa-arrow-right"></i>
+    </button>
+    <h2><i class="fa-solid fa-trophy"></i> أبطال BEM</h2>
+  </div>
+  <div class="overlay-body">
+    <div class="section-label">أعلى الأبطال</div>
+    <div id="leaderboard-list">
+      <!-- Dynamic leaderboard rows injected here -->
+      <div style="text-align:center;padding:20px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin"></i> جاري تحميل القائمة...</div>
+    </div>
+    <div class="section-label" style="margin-top:28px">ترتيبك</div>
+    <div class="rank-row me">
+      <span class="rank-num">14</span>
+      <span class="rank-name" id="my-name-row"> user name</span>
+      <span class="rank-xp" id="my-xp">0 XP</span>
+    </div>
+  </div>
+</div>
+
+<!-- Account -->
+<div class="overlay" id="ov-account">
+  <div class="overlay-head">
+    <button class="back" onclick="closeOverlay('account')">
+      <i class="fa-solid fa-arrow-right"></i>
+    </button>
+    <h2><i class="fa-solid fa-user"></i> مساحة التلميذ</h2>
+  </div>
+  <div class="overlay-body">
+    <div class="card" style="text-align:center">
+      <!-- Hidden file input for avatar -->
+      <input type="file" id="avatar-upload" accept="image/*" style="display:none" onchange="handleAvatarUpload(event)">
+      
+      <div class="drawer-avatar" style="margin-bottom:18px;cursor:pointer;position:relative;background-size:cover;background-position:center;border:3px solid #8dc63f" id="account-avatar" onclick="document.getElementById('avatar-upload').click()">
+        <span id="avatar-initial">س</span>
+        <div style="position:absolute;bottom:-5px;right:-5px;background:#8dc63f;color:#08080c;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;border:2px solid #08080c">
+          <i class="fa-solid fa-camera"></i>
+        </div>
+      </div>
+      
+      <h3 style="font-family:var(--font-serif);font-size:1.4rem;margin-bottom:6px;cursor:pointer" id="account-name" onclick="editUserName()">الاسم هنا <i class="fa-solid fa-pen" style="font-size:0.8rem;color:var(--text-muted)"></i></h3>
+      
+      <!-- Dream / Goal section -->
+      <div style="background:#fff;border:1px solid rgba(16,185,129,.3);border-radius:var(--r-md);padding:12px;margin-bottom:24px;display:inline-block;cursor:pointer" onclick="editDream()">
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px"><i class="fa-solid fa-bullseye" style="color:#10b981"></i> هدفي هذا العام:</div>
+        <div id="account-dream" style="color:#10b981;font-weight:700;font-size:.9rem">اضغط هنا لكتابة حلمك... (مثال: طبيب)</div>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:20px;display:flex;flex-direction:column;gap:14px;text-align:right">
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:var(--text-muted)">حالة الاشتراك</span>
+          <strong style="color:#34d399" id="acc-plan-status"><i class="fa-solid fa-user"></i> مجاني</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:var(--text-muted)">نقاط الخبرة (XP)</span>
+          <strong id="acc-xp">0</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:var(--text-muted)">الرتبة الحالية</span>
+          <strong style="color:#fbbf24"><i class="fa-solid fa-medal"></i> برونزي</strong>
+        </div>
+
+        <div style="margin-top:24px;border-top:1px solid var(--border);padding-top:16px;text-align:center">
+          <button class="btn btn-ghost" style="color:#ef4444;width:100%" onclick="handleLogout()">
+            <i class="fa-solid fa-right-from-bracket"></i> تسجيل الخروج
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Sync -->
+<div class="overlay" id="ov-sync">
+  <div class="overlay-head">
+    <button class="back" onclick="closeOverlay('sync')">
+      <i class="fa-solid fa-arrow-right"></i>
+    </button>
+    <h2><i class="fa-solid fa-arrows-rotate"></i> البيانات والمزامنة</h2>
+  </div>
+  <div class="overlay-body"><div id="sync-content"></div></div>
+</div>
+
+<!-- Analytics -->
+<div class="overlay" id="ov-stats2">
+  <div class="overlay-head">
+    <button class="back" onclick="closeOverlay('stats2')">
+      <i class="fa-solid fa-arrow-right"></i>
+    </button>
+    <h2><i class="fa-solid fa-chart-line"></i> التحليلات البيانية</h2>
+  </div>
+  <div class="overlay-body"><div id="analytics-content"></div></div>
+</div>
+
+<!-- Notifications -->
+<div class="overlay" id="ov-notif">
+  <div class="overlay-head">
+    <button class="back" onclick="closeOverlay('notif')">
+      <i class="fa-solid fa-arrow-right"></i>
+    </button>
+    <h2><i class="fa-solid fa-bell"></i> إعدادات الإشعارات</h2>
+  </div>
+  <div class="overlay-body"><div id="notif-content"></div></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <i class="fa-solid fa-circle-info"></i>
+  <span id="toast-text"></span>
+</div>
+<script src="./app_v11.js"></script>
+</body>
+</html>

@@ -33,6 +33,10 @@ async function initDb() {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    
+    // Add coins column if it doesn't exist
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS coins INTEGER DEFAULT 0');
+    
     console.log('✅ PostgreSQL Database connected and initialized successfully.');
   } catch (error) {
     console.error('❌ Database connection error:', error);

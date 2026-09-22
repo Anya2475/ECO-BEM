@@ -1,0 +1,36 @@
+Created At: 2026-09-19T10:01:56+01:00
+Completed At: 2026-09-19T10:01:56+01:00
+File Path: `file:///c:/Users/chatt/Desktop/ECO-BEM/index.html`
+Total Lines: 811
+Total Bytes: 44866
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: <!DOCTYPE html>
+2: <html lang="ar" dir="rtl">
+3: <head>
+4: <meta charset="UTF-8">
+5: <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+6: <meta name="theme-color" content="#08080c">
+7: <meta name="apple-mobile-web-app-capable" content="yes">
+8: <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+9: <meta name="apple-mobile-web-app-title" content="ECO-BEM">
+10: <meta name="description" content="منصة ECO-BEM الأكاديمية لشهادة التعليم المتوسط">
+11: <title>ECO-BEM | منصة شهادة التعليم المتوسط</title>
+12: <link rel="icon" type="image/png" href="./logo.png">
+13: <link rel="apple-touch-icon" href="./logo.png">
+14: <link rel="preconnect" href="https://fonts.googleapis.com">
+15: <div id="splash">
+16:   <img src="./logo.png" alt="ECO-BEM" class="splash-logo" onerror="this.style.display='none';document.getElementById('splashFallback').style.display='flex'">
+17:   <div id="splashFallback" style="display:none;width:140px;height:140px;border-radius:32px;background:linear-gradient(145deg,#8dc63f,#5a8a2a);align-items:center;justify-content:center;font-family:var(--font-serif);font-size:3.4rem;font-weight:900;color:#08080c;letter-spacing:-2px;box-shadow:0 20px 60px rgba(141,198,63,.55);margin-bottom:28px">EB</div>
+18:   <p class="splash-tag">منصة شهادة التعليم المتوسط</p>
+19:   <button class="splash-btn" onclick="enterApp()">
+20:     <span>ابدأ الرحلة</span>
+21:     <i class="fa-solid fa-arrow-left"></i>
+22:   </button>
+23: </div>
+24: 
+25: <!-- ═══════════════════════════════════════════════════
+26:      PREMIUM OVERLAY
+27:      ═══════════════════════════════════════════════════ -->
+28: 
+29: <!-- ═══════════════ AUTHENTICATION OVERLAY ═══════════════ -->
+30: <div class="overlay" id="ov-auth" style="z-index:99999;background:var(--bg)">

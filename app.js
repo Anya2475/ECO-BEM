@@ -390,12 +390,33 @@ const AITeacher = {
     { role: "system", content: "أنت معلم ذكي ومرح مخصص لمساعدة طلاب شهادة التعليم المتوسط (BEM) في الجزائر. اسمك 'المعلم الذكي'." }
   ],
   renderMarkdown(text) {
-    return String(text)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/`(.+?)`/g, '<code style="background:var(--surface);padding:2px 6px;border-radius:4px">$1</code>')
-      .replace(/\\n/g, '<br>');
+    let html = String(text)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      
+    // Code blocks
+    html = html.replace(/```([\s\S]+?)```/g, '<pre style="background:var(--surface);padding:10px;border-radius:8px;overflow-x:auto;text-align:left;direction:ltr"><code>$1</code></pre>');
+    html = html.replace(/`(.+?)`/g, '<code style="background:var(--surface);padding:2px 6px;border-radius:4px;color:#10b981">$1</code>');
+    
+    // Headers
+    html = html.replace(/^### (.*?)$/gm, '<h3 style="color:#10b981;margin-top:15px;margin-bottom:5px">$1</h3>');
+    html = html.replace(/^## (.*?)$/gm, '<h2 style="color:#10b981;margin-top:15px;margin-bottom:5px">$1</h2>');
+    html = html.replace(/^# (.*?)$/gm, '<h1 style="color:#10b981;margin-top:15px;margin-bottom:5px">$1</h1>');
+    
+    // Bold, Italic, Horizontal Rule
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    html = html.replace(/^---$/gm, '<hr style="border:none;border-top:1px solid rgba(16,185,129,0.3);margin:15px 0">');
+    
+    // Links
+    html = html.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#10b981;text-decoration:underline">$1</a>');
+    
+    // Lists
+    html = html.replace(/^[\*\-] (.*?)$/gm, '<li style="margin-right:20px;list-style-type:disc">$1</li>');
+    
+    // Newlines to <br>
+    html = html.replace(/\n/g, '<br>');
+    
+    return html;
   },
   async send(text) {
     if (!text?.trim()) return;
@@ -417,23 +438,76 @@ const AITeacher = {
     this.history.push({ role: 'user', content: text });
 
     let reply = "";
-    try {
-      const response = await fetch('http://localhost:3000/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: this.history })
-      });
-      
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Network response was not ok');
-      }
-      const data = await response.json();
-      reply = data.choices[0].message.content;
-      this.history.push({ role: 'assistant', content: reply });
-    } catch (error) {
-      console.error('Error calling backend:', error);
-      reply = `عذراً، حدث خطأ: ${error.message}`;
+    
+    let apiKey = localStorage.getItem('gemini_api_key') || 'AQ.Ab8RN6LloMNNz-fZGviiB2svB2EBd338MiuvNyW7NIsKsERJmw';
+    if (!apiKey) {
+        if (text.trim().startsWith('API_KEY:')) {
+            apiKey = text.replace('API_KEY:', '').trim();
+            localStorage.setItem('gemini_api_key', apiKey);
+            reply = "✅ تم حفظ مفتاح API بنجاح! يمكنك الآن سؤالي عن أي درس أو سؤال في المنهج.";
+            this.history.push({ role: 'assistant', content: reply });
+        } else {
+            reply = `عذراً، لكي أعمل كمعلم ذكي حقيقي، يجب ربطي بالذكاء الاصطناعي (Google Gemini).\n\n1. اذهب إلى الرابط التالي واحصل على مفتاح مجاني (API Key):\nhttps://aistudio.google.com/app/apikey\n\n2. انسخ المفتاح، وأرسله لي هنا في رسالة تبدأ بكلمة **API_KEY:**\n\nمثال:\n\`API_KEY: AIzaSyB_...\``;
+        }
+    } else {
+        if (text.trim().startsWith('API_KEY:')) {
+            apiKey = text.replace('API_KEY:', '').trim();
+            localStorage.setItem('gemini_api_key', apiKey);
+            reply = "✅ تم تحديث مفتاح API بنجاح!";
+            this.history.push({ role: 'assistant', content: reply });
+        } else {
+            try {
+                const contents = this.history.filter(m => m.role !== 'system').map(m => ({
+                    role: m.role === 'assistant' ? 'model' : 'user',
+                    parts: [{ text: m.content }]
+                }));
+                const sysMsg = this.history.find(m => m.role === 'system')?.content || '';
+
+                const models = ['gemini-3.7-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
+                let success = false;
+                let lastErrorMsg = '';
+
+                for (const model of models) {
+                    try {
+                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                systemInstruction: { parts: [{ text: sysMsg }] },
+                                contents: contents
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            const errData = await response.json();
+                            if (errData.error && errData.error.message.includes('API key not valid')) {
+                                localStorage.removeItem('gemini_api_key');
+                                throw new Error("مفتاح API غير صالح! يرجى التأكد منه وإرساله مجدداً بكلمة API_KEY:");
+                            }
+                            throw new Error(errData.error?.message || 'Network error');
+                        }
+                        
+                        const data = await response.json();
+                        reply = data.candidates[0].content.parts[0].text;
+                        this.history.push({ role: 'assistant', content: reply });
+                        success = true;
+                        break; // Stop trying if successful
+                    } catch (err) {
+                        lastErrorMsg = err.message;
+                        if (lastErrorMsg.includes("مفتاح API غير صالح")) break;
+                        // Otherwise, continue to next model
+                        console.warn(`Model ${model} failed, trying next...`);
+                    }
+                }
+
+                if (!success) {
+                    throw new Error(lastErrorMsg);
+                }
+            } catch (error) {
+                console.error('Gemini Error:', error);
+                reply = `عذراً، حدث خطأ: ${error.message}`;
+            }
+        }
     }
 
     ai.style.color = '';
@@ -1032,6 +1106,7 @@ function renderNotifSettings() {
 /* ═══ Core Functions ═══ */
 let appEntered = false;
 function enterApp() {
+  renderAnnalsSubjects();
     if (appEntered) return;
     appEntered = true;
     Sound.ok();
@@ -1103,6 +1178,7 @@ function openOverlay(id) {
   else if (id === 'notif') renderNotifSettings();
   else if (id === 'sync') renderSyncPanel(); 
   else if (id === 'quiz') setTimeout(startQuiz, 350);
+  else if (id === 'rank' && typeof window.loadLeaderboard === 'function') window.loadLeaderboard();
 }
 function closeOverlay(id) {
   Sound.tap();
@@ -1204,7 +1280,7 @@ window.handleAvatarUpload = function(event) {
     const dataUrl = e.target.result;
     try {
       localStorage.setItem('eco_user_avatar', dataUrl);
-      window.loadAvatar();
+      window.loadAvatar(); console.log('Avatar uploaded and loaded!');
       toast('تم تحديث الصورة بنجاح! 📸', 'ok');
     } catch (err) {
       toast('❌ الصورة كبيرة جداً، يرجى اختيار صورة أصغر بحجم أقل من 2 ميغابايت.', 'err');
@@ -1217,6 +1293,7 @@ window.loadAvatar = function() {
   try {
     const dataUrl = localStorage.getItem('eco_user_avatar');
     const avatarEl = document.getElementById('account-avatar');
+    const drawerAvatarEl = document.getElementById('drawer-avatar');
     const miniEl = document.querySelector('.avatar-mini');
     const initialEl = document.getElementById('avatar-initial');
     
@@ -1224,6 +1301,12 @@ window.loadAvatar = function() {
       if (avatarEl) {
         avatarEl.style.backgroundImage = 'url(' + dataUrl + ')';
         if(initialEl) initialEl.style.display = 'none';
+      }
+      if (drawerAvatarEl) {
+        drawerAvatarEl.style.backgroundImage = 'url(' + dataUrl + ')';
+        drawerAvatarEl.style.backgroundSize = 'cover';
+        drawerAvatarEl.style.backgroundPosition = 'center';
+        drawerAvatarEl.style.color = 'transparent'; // hide the initial text
       }
       if (miniEl) {
         miniEl.style.backgroundImage = 'url(' + dataUrl + ')';
@@ -1263,13 +1346,13 @@ window.loadDream = function() {
 const oldUpdateUserUI = window.updateUserUI;
 window.updateUserUI = function() {
   if (typeof oldUpdateUserUI === 'function') oldUpdateUserUI();
-  window.loadAvatar();
+  window.loadAvatar(); console.log('Avatar uploaded and loaded!');
   window.loadDream();
 };
 
 
 /* ══════════════ AUTH & DB SYNC LOGIC ══════════════ */
-const API_URL = '/api';
+const API_URL = 'http://localhost:3000/api';
 
 window.switchAuth = function(tab) {
   document.getElementById('tab-login').classList.remove('on');
@@ -1355,8 +1438,16 @@ window.syncUserData = async function() {
       // For now, let's just update the UI directly if we have to
       document.getElementById('acc-xp').textContent = user.xp;
       
-      window.loadAvatar();
+      // Coins Logic
+      window.userCoins = user.coins || 0;
+      const coinsEl = document.getElementById('ui-coins');
+      if (coinsEl) coinsEl.textContent = window.userCoins;
+
+      window.loadAvatar(); console.log('Avatar uploaded and loaded!');
       window.loadDream();
+      
+      // Initial render for daily quests
+      if(typeof renderDailyQuests === 'function') renderDailyQuests();
     } else {
       // Token invalid
       localStorage.removeItem('eco_token');
@@ -1386,17 +1477,45 @@ const originalHandleAvatarUpload = window.handleAvatarUpload;
 window.handleAvatarUpload = function(event) {
   const file = event.target.files[0];
   if (!file) return;
+  
   const reader = new FileReader();
   reader.onload = function(e) {
-    const dataUrl = e.target.result;
-    try {
-      localStorage.setItem('eco_user_avatar', dataUrl);
-      window.loadAvatar();
-      window.saveToDB({ avatar_url: dataUrl }); // SYNC TO DB
-      toast('تم تحديث الصورة بنجاح! 📸', 'ok');
-    } catch (err) {
-      toast('❌ الصورة كبيرة جداً، يرجى اختيار صورة أصغر بحجم أقل من 2 ميغابايت.', 'err');
-    }
+    const img = new Image();
+    img.onload = function() {
+      // Compress image
+      const canvas = document.createElement('canvas');
+      const MAX_SIZE = 256;
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > MAX_SIZE) {
+          height *= MAX_SIZE / width;
+          width = MAX_SIZE;
+        }
+      } else {
+        if (height > MAX_SIZE) {
+          width *= MAX_SIZE / height;
+          height = MAX_SIZE;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      
+      try {
+        localStorage.setItem('eco_user_avatar', dataUrl);
+        window.loadAvatar(); console.log('Avatar uploaded and loaded!');
+        window.saveToDB({ avatar_url: dataUrl }); // SYNC TO DB
+        toast('تم تحديث الصورة بنجاح! 📸', 'ok');
+      } catch (err) {
+        toast('❌ حدث خطأ في حفظ الصورة.', 'err');
+      }
+      event.target.value = ''; // Reset input so same file can be chosen again
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 };
@@ -1427,3 +1546,344 @@ window.setUserName = function(name, skipSync = false) {
 
 
 
+
+
+/* 🪙🪙🪙 DAILY QUESTS & COINS LOGIC 🪙🪙🪙 */
+window.userCoins = 0;
+
+window.dailyQuests = [
+  { id: 'math-quiz', title: 'حل تمرين رياضيات', xpReward: 50, coinsReward: 10, icon: 'fa-calculator', color: '#38bdf8', isDone: false, action: () => openLessons('math') },
+  { id: 'ai-chat', title: 'اطرح سؤالاً على المعلم الذكي', xpReward: 30, coinsReward: 5, icon: 'fa-robot', color: '#8b5cf6', isDone: false, action: () => openOverlay('teacher') },
+  { id: 'zen-mode', title: 'جلسة تنفس (مساحة رفيقي)', xpReward: 20, coinsReward: 5, icon: 'fa-leaf', color: '#34d399', isDone: false, action: () => openOverlay('zen') }
+];
+
+window.completeQuest = async function(questId) {
+  const q = window.dailyQuests.find(x => x.id === questId);
+  if (!q || q.isDone) return;
+  
+  q.isDone = true;
+  
+  // Award XP
+  try { await EcoDB.addXP(q.xpReward); } catch(e) {}
+  
+  // Award Coins
+  window.userCoins += q.coinsReward;
+  const coinsEl = document.getElementById('ui-coins');
+  if (coinsEl) coinsEl.textContent = window.userCoins;
+  
+  toast(`مهمة منجزة! حصلت على ${q.xpReward} XP و ${q.coinsReward} عملات ذهبية`, 'ok');
+  Sound.ok();
+  
+  // Save coins to DB
+  window.saveToDB({ coins: window.userCoins });
+  
+  renderDailyQuests();
+};
+
+window.renderDailyQuests = function() {
+  const container = document.getElementById('daily-quests-container');
+  const progress = document.getElementById('quests-progress');
+  if (!container || !progress) return;
+  
+  container.innerHTML = '';
+  
+  let doneCount = 0;
+  
+  window.dailyQuests.forEach(q => {
+    if (q.isDone) doneCount++;
+    
+    const div = document.createElement('div');
+    div.style.display = 'flex';
+    div.style.alignItems = 'center';
+    div.style.gap = '12px';
+    div.style.padding = '12px';
+    div.style.background = 'var(--bg-elev-1)';
+    div.style.borderRadius = 'var(--r-md)';
+    
+    if (q.isDone) {
+      div.style.opacity = '0.6';
+      div.innerHTML = `
+        <i class="fa-solid fa-circle-check" style="color:#10b981;font-size:1.2rem"></i>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:0.95rem;text-decoration:line-through">${q.title}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted)">+${q.xpReward} XP | +${q.coinsReward} 🪙</div>
+        </div>
+      `;
+    } else {
+      div.style.borderRight = `3px solid ${q.color}`;
+      div.innerHTML = `
+        <i class="fa-solid ${q.icon}" style="color:${q.color};font-size:1.2rem"></i>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:0.95rem">${q.title}</div>
+          <div style="font-size:0.75rem;color:${q.color}">+${q.xpReward} XP | +${q.coinsReward} 🪙</div>
+        </div>
+        <button class="btn btn-primary" style="padding:4px 12px;font-size:0.8rem;border-radius:12px;background:${q.color};border:none">إنجاز</button>
+      `;
+      const btn = div.querySelector('button');
+      btn.onclick = () => {
+         // Perform action first
+         if(q.action) q.action();
+         // Wait a little before marking it complete (in real life, this would hook into the actual completion event of the lesson/chat)
+         setTimeout(() => window.completeQuest(q.id), 2000);
+      };
+    }
+    
+    container.appendChild(div);
+  });
+  
+  progress.textContent = `${doneCount}/${window.dailyQuests.length} منجزة`;
+};
+
+// Initial Render
+document.addEventListener('DOMContentLoaded', () => {
+  renderDailyQuests();
+});
+
+
+/* 🏆 LEADERBOARD LOGIC 🏆 */
+window.loadLeaderboard = async function() {
+    const list = document.getElementById('leaderboard-list');
+    if (!list) return;
+    
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin"></i> جاري تحميل القائمة...</div>';
+    
+    try {
+        const res = await fetch(API_URL + '/leaderboard');
+        if (!res.ok) throw new Error('Failed to fetch');
+        const data = await res.json();
+        
+        list.innerHTML = '';
+        
+        data.forEach((user, index) => {
+            let rowClass = 'rank-row';
+            if (index === 0) rowClass += ' gold';
+            else if (index === 1) rowClass += ' silver';
+            else if (index === 2) rowClass += ' bronze';
+            
+            // Check if this is the current user
+            const myName = document.getElementById('account-name')?.textContent;
+            if (myName && user.name === myName) {
+                rowClass += ' me';
+            }
+            
+            const div = document.createElement('div');
+            div.className = rowClass;
+            
+            // Generate avatar if not present
+            let avatarHtml = `<span class="rank-num">${index + 1}</span>`;
+            if (user.avatar_url && user.avatar_url.trim() !== '') {
+                avatarHtml = `<div style="display:flex;align-items:center;gap:10px;">
+                                <span class="rank-num">${index + 1}</span>
+                                <div style="width:30px;height:30px;border-radius:50%;background:url('${user.avatar_url}') center/cover;border:1px solid rgba(255,255,255,0.2)"></div>
+                              </div>`;
+            }
+            
+            div.innerHTML = `
+                ${avatarHtml}
+                <span class="rank-name">${user.name}</span>
+                <span class="rank-xp">${user.xp || 0} XP</span>
+            `;
+            list.appendChild(div);
+        });
+        
+    } catch(err) {
+        list.innerHTML = '<div style="text-align:center;padding:20px;color:#f87171;">حدث خطأ أثناء تحميل القائمة.</div>';
+    }
+};
+
+
+// ═══════════════ BEM ANNALS LOGIC ═══════════════
+function renderAnnalsSubjects() {
+  const listEl = document.getElementById('annals-subject-list');
+  if (!listEl) return;
+  
+  listEl.innerHTML = '';
+  
+  if (typeof annalsData === 'undefined') {
+    listEl.innerHTML = '<div style="color:var(--text-muted);grid-column:1/-1;">لم يتم العثور على بيانات الحوليات. تأكد من تحميل annalsData.js</div>';
+    
+    return;
+  }
+  
+  const subjects = Object.keys(annalsData);
+  if (subjects.length === 0) {
+    listEl.innerHTML = '<div style="color:var(--text-muted);grid-column:1/-1;">لا توجد حوليات متوفرة حالياً.</div>';
+  } else {
+    subjects.forEach(sub => {
+      // Find the first year to use as default or create a sub-menu later
+      // For now, if clicking a subject, just open the first year available
+      const years = Object.keys(annalsData[sub]).sort((a,b)=>b.localeCompare(a)); // newest first
+      const defaultYear = years[0];
+      
+      const div = document.createElement('div');
+      div.className = 'tile';
+      div.style.textAlign = 'center';
+      div.style.padding = '15px';
+      
+      // Determine color based on subject (simple hash or mapping)
+      let color = '#fbbf24';
+      if(sub.includes('رياضيات') || sub.includes('فيزياء')) color = '#38bdf8';
+      if(sub.includes('عربية') || sub.includes('إسلامية')) color = '#10b981';
+      if(sub.includes('تاريخ')) color = '#a855f7';
+      if(sub.includes('فرنسية') || sub.includes('إنجليزية')) color = '#f43f5e';
+      
+      div.innerHTML = `
+        <div class="tile-icon" style="background:${color}20;color:${color};margin:0 auto 10px;">
+          <i class="fa-solid fa-book"></i>
+        </div>
+        <h4 style="margin:0;font-size:1rem;">${sub}</h4>
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-top:5px;">${years.length} مواضيع متوفرة</div>
+      `;
+      div.onclick = () => openAnnalsViewer(sub, defaultYear);
+      listEl.appendChild(div);
+    });
+  }
+  
+  
+}
+
+function openAnnalsViewer(subject, year) {
+  
+  
+  const viewerTitle = document.getElementById('annals-viewer-title');
+  const subjImgs = document.getElementById('annals-subject-images');
+  const solImgs = document.getElementById('annals-solution-images');
+  const attemptArea = document.getElementById('annals-attempt-area');
+  const showBtn = document.getElementById('annals-show-solution-btn');
+  
+  // Build a dropdown for years if multiple years exist
+  const availableYears = Object.keys(annalsData[subject]);
+  let titleHtml = `حولية ${subject}`;
+  if (availableYears.length > 1) {
+    let savedYears = JSON.parse('{}' || '{}');
+    
+    let options = availableYears.map(y => {
+      return { key: y, display: savedYears[`${subject}_${y}`] || y.replace('_', ' ') };
+    });
+    
+    // Remove duplicates based on display text
+    let uniqueOptions = [];
+    let seen = new Set();
+    options.forEach(opt => {
+      if (!seen.has(opt.display)) {
+        seen.add(opt.display);
+        uniqueOptions.push(opt);
+      }
+    });
+    
+    // Sort descending by display text
+    uniqueOptions.sort((a, b) => b.display.localeCompare(a.display));
+
+    titleHtml += ` <select onchange="openAnnalsViewer('${subject}', this.value)" style="margin-right:10px;padding:4px;border-radius:4px;background:#fff;color:#000;border:1px solid #ccc;font-weight:bold;cursor:pointer;">`;
+    uniqueOptions.forEach(opt => {
+      titleHtml += `<option value="${opt.key}" ${opt.key === year ? 'selected' : ''}>${opt.display}</option>`;
+    });
+    titleHtml += `</select>`;
+    titleHtml += `<button onclick="editYear('${subject}', '${year}')" style="padding:4px 8px;border-radius:4px;background:#444;color:#fff;border:none;cursor:pointer;font-size:12px;margin-left:5px;">✏️ تعديل السنة</button>`;
+  } else {
+    titleHtml += ` - ${year}`;
+  }
+  viewerTitle.innerHTML = titleHtml;
+  
+  // Reset states
+  attemptArea.value = '';
+  solImgs.style.display = 'none';
+  showBtn.style.display = 'block';
+  
+  const data = annalsData[subject][year];
+  const pages = data.pages;
+  let customSplits = JSON.parse(localStorage.getItem('customSplits') || '{}');
+  if (subject === 'اللغة العربية' && year === '2026' && customSplits[`${subject}_${year}`] !== 1) {
+    customSplits[`${subject}_${year}`] = 1;
+    localStorage.setItem('customSplits', JSON.stringify(customSplits));
+  }
+  let splitIdx = customSplits[`${subject}_${year}`] !== undefined ? customSplits[`${subject}_${year}`] : data.split_idx;
+  
+  // Render Subject Images (0 to splitIdx-1)
+  subjImgs.innerHTML = '';
+  for(let i=0; i<splitIdx; i++) {
+    const img = document.createElement('img');
+    img.src = pages[i] + '?t=' + new Date().getTime();
+    img.style.width = '100%';
+    img.style.clipPath = 'inset(0 0 9% 0)';
+    img.style.marginBottom = '-9%';
+    img.style.borderRadius = '8px';
+    img.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+    // CSS filter to remove DzExams watermark (makes light gray pure white)
+    img.style.filter = 'grayscale(100%) contrast(1.7) brightness(1.2)';
+    subjImgs.appendChild(img);
+  }
+  
+  const splitControls = document.createElement('div');
+  splitControls.style.display = 'flex';
+  splitControls.style.justifyContent = 'center';
+  splitControls.style.gap = '10px';
+  splitControls.style.marginTop = '15px';
+  splitControls.innerHTML = `
+    <button onclick="adjustSplit('${subject}', '${year}', 1)" style="padding:8px 15px;border-radius:8px;background:#10b981;color:#fff;border:none;cursor:pointer;font-weight:bold;display:flex;align-items:center;gap:5px;"><i class="fa-solid fa-arrow-down"></i> إظهار صفحة إضافية للسؤال</button>
+    <button onclick="adjustSplit('${subject}', '${year}', -1)" style="padding:8px 15px;border-radius:8px;background:#e63946;color:#fff;border:none;cursor:pointer;font-weight:bold;display:flex;align-items:center;gap:5px;"><i class="fa-solid fa-arrow-up"></i> إرجاع الصفحة للإجابة</button>
+  `;
+  subjImgs.appendChild(splitControls);
+  
+  // Render Solution Images (splitIdx to end)
+  solImgs.innerHTML = '<h4 style="text-align:center;color:#10b981;margin-bottom:20px;padding-top:10px;border-top:2px dashed #10b981;">التصحيح النموذجي</h4>';
+  for(let i=splitIdx; i<pages.length; i++) {
+    const img = document.createElement('img');
+    img.src = pages[i] + '?t=' + new Date().getTime();
+    img.style.width = '100%';
+    img.style.clipPath = 'inset(0 0 9% 0)';
+    img.style.marginBottom = '-9%';
+    img.style.borderRadius = '8px';
+    img.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+    img.style.filter = 'grayscale(100%) contrast(1.7) brightness(1.2)';
+    solImgs.appendChild(img);
+  }
+  
+  openOverlay('annals-viewer');
+}
+
+function showAnnalsSolution() {
+  const attemptArea = document.getElementById('annals-attempt-area');
+  if (attemptArea.value.trim().length < 5) {
+    alert('يرجى المحاولة وكتابة إجابتك (أو بعض النقاط الرئيسية) قبل عرض الحل النموذجي!');
+    attemptArea.focus();
+    return;
+  }
+  
+  document.getElementById('annals-solution-images').style.display = 'block';
+  document.getElementById('annals-show-solution-btn').style.display = 'none';
+  
+  // Scroll to solution
+  setTimeout(() => {
+    document.getElementById('annals-solution-images').scrollIntoView({behavior: 'smooth'});
+  }, 100);
+}
+
+function closeAnnalsViewer() {
+  closeOverlay('annals-viewer');
+}
+
+window.openAnnalsViewer = openAnnalsViewer;
+
+window.editYear = function(subject, yearId) {
+    let saved = JSON.parse('{}' || '{}');
+    let current = saved[`${subject}_${yearId}`] || yearId.replace('_', ' ');
+    let newYear = prompt("أدخل السنة الصحيحة لهذا الامتحان (مثلاً: 2024):", current);
+    if (newYear && newYear.trim() !== '') {
+        saved[`${subject}_${yearId}`] = newYear.trim();
+        localStorage.setItem('customYears', JSON.stringify(saved));
+        openAnnalsViewer(subject, yearId); // Refresh view
+    }
+};
+
+window.adjustSplit = function(subject, yearId, delta) {
+    const data = annalsData[subject][yearId];
+    let customSplits = JSON.parse(localStorage.getItem('customSplits') || '{}');
+    let currentSplit = customSplits[`${subject}_${yearId}`] !== undefined ? customSplits[`${subject}_${yearId}`] : data.split_idx;
+    currentSplit += delta;
+    if (currentSplit < 1) currentSplit = 1;
+    if (currentSplit > data.pages.length) currentSplit = data.pages.length;
+    customSplits[`${subject}_${yearId}`] = currentSplit;
+    localStorage.setItem('customSplits', JSON.stringify(customSplits));
+    openAnnalsViewer(subject, yearId);
+};
