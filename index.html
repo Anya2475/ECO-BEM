@@ -20,10 +20,11 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-<link rel="stylesheet" href="./style.CSS?v=13">
+<link rel="stylesheet" href="./style.CSS?v=15">
 <script>window.onerror=function(m,u,l,c,e){var d=document.createElement('div');d.style.cssText='position:fixed;top:0;left:0;width:100%;background:red;color:white;z-index:9999999999;padding:20px;font-size:20px;';d.innerHTML='<b>ERROR:</b> '+m+'<br>Line: '+l+'<br>Col: '+c;if(document.body)document.body.appendChild(d);else window.addEventListener('load',function(){document.body.appendChild(d);});};</script>
 <script defer src="./lessonsData.js"></script>
 <script defer src="./bankData_v7.js"></script>
+<script defer src="./podcastData.js?v=3"></script>
 </head>
 <body>
 
@@ -124,6 +125,9 @@
     <p>السنة الرابعة متوسط</p>
   </div>
   <div class="drawer-menu">
+    <div class="drawer-item" onclick="openOverlay('podcast');toggleDrawer(false)">
+      <i class="fa-solid fa-podcast" style="color:#a855f7"></i><span>البودكاست 🎙️</span>
+    </div>
     <div class="drawer-item" onclick="openOverlay('rank');toggleDrawer(false)">
       <i class="fa-solid fa-trophy" style="color:#a4d466"></i><span>الأبطال</span>
     </div>
@@ -627,6 +631,88 @@
   </div>
 </div>
 
+
+<!-- ═══════════════ PODCAST OVERLAY ═══════════════ -->
+<div class="overlay" id="ov-podcast">
+  <div class="overlay-head">
+    <button class="back" onclick="closeOverlay('podcast')">
+      <i class="fa-solid fa-arrow-right"></i>
+    </button>
+    <h2><i class="fa-solid fa-podcast" style="color:#a855f7"></i> بودكاست ECO-BEM</h2>
+  </div>
+  <div class="overlay-body" style="padding-bottom:120px; overflow-x: hidden;">
+    <!-- View 1: Subjects Grid -->
+    <div id="podcast-subjects-view" style="transition: transform 0.3s ease;">
+      <h3 style="margin-bottom: 20px; color: var(--text);">اختر مادة للاستماع 🎧</h3>
+      <div class="podcast-subjects-grid">
+        <div class="pod-sub-card" onclick="openPodcastSubject('التاريخ')">
+          <div class="pod-sub-icon" style="background: rgba(251,191,36,0.15); color: #fbbf24;"><i class="fa-solid fa-landmark"></i></div>
+          <div class="pod-sub-name">التاريخ</div>
+        </div>
+        <div class="pod-sub-card" onclick="openPodcastSubject('الجغرافيا')">
+          <div class="pod-sub-icon" style="background: rgba(16,185,129,0.15); color: #10b981;"><i class="fa-solid fa-earth-africa"></i></div>
+          <div class="pod-sub-name">الجغرافيا</div>
+        </div>
+        <div class="pod-sub-card" onclick="openPodcastSubject('التربية الإسلامية')">
+          <div class="pod-sub-icon" style="background: rgba(168,85,247,0.15); color: #a855f7;"><i class="fa-solid fa-mosque"></i></div>
+          <div class="pod-sub-name">التربية الإسلامية</div>
+        </div>
+        <div class="pod-sub-card" onclick="openPodcastSubject('التربية المدنية')">
+          <div class="pod-sub-icon" style="background: rgba(56,189,248,0.15); color: #38bdf8;"><i class="fa-solid fa-scale-balanced"></i></div>
+          <div class="pod-sub-name">التربية المدنية</div>
+        </div>
+        <div class="pod-sub-card" onclick="openPodcastSubject('الفرنسية')">
+          <div class="pod-sub-icon" style="background: rgba(244,63,94,0.15); color: #f43f5e;"><i class="fa-solid fa-language"></i></div>
+          <div class="pod-sub-name">الفرنسية</div>
+        </div>
+        <div class="pod-sub-card" onclick="openPodcastSubject('الإنجليزية')">
+          <div class="pod-sub-icon" style="background: rgba(99,102,241,0.15); color: #6366f1;"><i class="fa-solid fa-globe"></i></div>
+          <div class="pod-sub-name">الإنجليزية</div>
+        </div>
+        <div class="pod-sub-card" onclick="openPodcastSubject('تحفيز')">
+          <div class="pod-sub-icon" style="background: rgba(255,165,0,0.15); color: orange;"><i class="fa-solid fa-fire"></i></div>
+          <div class="pod-sub-name">نصائح وتحفيز</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- View 2: Episodes List (Hidden initially) -->
+    <div id="podcast-episodes-view" style="display: none; transition: transform 0.3s ease;">
+      <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+        <button class="btn btn-ghost" onclick="backToPodcastSubjects()" style="padding: 8px 12px; border-radius: 10px;">
+          <i class="fa-solid fa-arrow-right"></i> رجوع
+        </button>
+        <h3 id="current-podcast-subject-title" style="margin: 0; color: var(--text);">الحلقات</h3>
+      </div>
+      <div id="podcast-list" style="display:flex;flex-direction:column;gap:15px;">
+        <!-- Injected via JS -->
+      </div>
+    </div>
+  </div>
+  
+  <!-- Sticky Player -->
+  <div id="podcast-player" class="podcast-player-hidden" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 20px;z-index:99999;box-shadow:0 -4px 20px rgba(0,0,0,0.5);">
+    <div class="player-progress-container" style="width:100%;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;margin-bottom:10px;cursor:pointer;" onclick="seekAudio(event)">
+      <div class="player-progress" id="podcast-progress" style="width:0%;height:100%;background:#a855f7;border-radius:2px;"></div>
+    </div>
+    <div class="player-content" style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="player-info" style="display:flex;align-items:center;gap:15px;">
+        <div class="player-cover" id="player-cover" style="width:50px;height:50px;border-radius:10px;background:#333;background-size:cover;background-position:center;"></div>
+        <div>
+          <div class="player-title" id="player-title" style="font-weight:bold;font-size:1rem;">اختر حلقة للبدء</div>
+          <div class="player-category" id="player-category" style="font-size:0.8rem;color:var(--text-muted);">--</div>
+        </div>
+      </div>
+      <div class="player-controls">
+        <button class="player-btn" onclick="togglePlayPause()" id="btn-play-pause" style="width:40px;height:40px;border-radius:50%;background:#a855f7;color:white;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;">
+          <i class="fa-solid fa-play"></i>
+        </button>
+      </div>
+    </div>
+    <audio id="global-audio" ontimeupdate="updateProgress()" onended="resetPlayer()"></audio>
+  </div>
+</div>
+
 <!-- Zen Wellness -->
 <div class="overlay" id="ov-zen">
   <div class="overlay-head">
@@ -960,7 +1046,7 @@
   <i class="fa-solid fa-circle-info"></i>
   <span id="toast-text"></span>
 </div>
-<script src="./app_v12.js?v=4"></script>
+<script src="./app_v12.js?v=7"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

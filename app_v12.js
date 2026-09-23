@@ -1180,7 +1180,7 @@ async function startAIFlashcards() {
     document.getElementById('flash-loading').style.display = 'block';
     
     
-    const prompt = `قم بتوليد 5 بطاقات استذكار (Flashcards) لمراجعة أهم المفاهيم في مادة ${subject} في مستوى شهادة التعليم المتوسط (BEM) في الجزائر.
+    const prompt = `قم بتوليد 5 بطاقات استذكار (Flashcards) عشوائية وجديدة تماماً لمراجعة مفاهيم مختلفة في مادة ${subject} في مستوى شهادة التعليم المتوسط (BEM) في الجزائر. لا تكرر الأسئلة المعتادة، ابحث عن مفاهيم جديدة.
 الرد يجب أن يكون حصراً بصيغة JSON array فقط، كل عنصر يحتوي على:
 {
   "term": "المفهوم أو المصطلح",
@@ -1209,8 +1209,9 @@ async function startAIFlashcards() {
         if (!data.choices || !data.choices[0].message.content) throw new Error('Invalid response from AI');
         
         let text = data.choices[0].message.content;
-        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        aiFlashData = JSON.parse(text);
+        const match = text.match(/\[[\s\S]*\]/);
+        if (!match) throw new Error('No JSON array found in response');
+        aiFlashData = JSON.parse(match[0]);
         
         document.getElementById('flash-loading').style.display = 'none';
         document.getElementById('flash-play').style.display = 'block';
@@ -1345,7 +1346,7 @@ window.startAIQuiz = async function() {
     document.getElementById('quiz-loading').style.display = 'block';
     
     
-    const prompt = `قم بتوليد 5 أسئلة اختيار من متعدد (QCM) لمادة ${subject} في مستوى شهادة التعليم المتوسط (BEM) في الجزائر.
+    const prompt = `قم بتوليد 5 أسئلة اختيار من متعدد (QCM) عشوائية وجديدة تماماً لمادة ${subject} في مستوى شهادة التعليم المتوسط (BEM) في الجزائر. لا تكرر الأسئلة المعتادة، بل ابحث عن دروس ومعلومات متنوعة.
 الرد يجب أن يكون حصراً بصيغة JSON array فقط، كل عنصر يحتوي على:
 {
   "q": "نص السؤال هنا",
@@ -1379,8 +1380,9 @@ window.startAIQuiz = async function() {
         if (!data.choices || !data.choices[0].message.content) throw new Error('Invalid response from AI');
         
         let text = data.choices[0].message.content;
-        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        aiQuizData = JSON.parse(text);
+        const match = text.match(/\[[\s\S]*\]/);
+        if (!match) throw new Error('No JSON array found in response');
+        aiQuizData = JSON.parse(match[0]);
         
     } catch (e) {
         console.warn('AI Quiz failed, using fallback data:', e.message);
