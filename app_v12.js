@@ -1174,8 +1174,9 @@ let aiFlashData = [];
 let aiFlashIdx = 0;
 let flashCardFlipped = false;
 
-async function startAIFlashcards() {
-    const subject = document.getElementById('flash-subject').value;
+window.startAIFlashcards = async function() {
+    const selectElement = document.getElementById('flash-subject');
+    const subject = selectElement.options[selectElement.selectedIndex].text;
     document.getElementById('flash-setup').style.display = 'none';
     document.getElementById('flash-loading').style.display = 'block';
     
@@ -1341,7 +1342,8 @@ let aiQuizIdx = 0;
 let aiQuizScore = 0;
 
 window.startAIQuiz = async function() {
-    const subject = document.getElementById('quiz-subject').value;
+    const selectElement = document.getElementById('quiz-subject');
+    const subject = selectElement.options[selectElement.selectedIndex].text;
     document.getElementById('quiz-setup').style.display = 'none';
     document.getElementById('quiz-loading').style.display = 'block';
     
