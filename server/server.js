@@ -69,7 +69,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         
         // List of models to try in order of preference (Fastest/highest limits first)
-        const modelsToTry = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-flash-lite-latest"];
+        const modelsToTry = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-flash-latest"];
         
         history.pop(); // remove current message for startChat history
         
@@ -102,7 +102,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
         }
 
         if (apiFailed) {
-            responseText = offlineSmartReply(currentMessageText) + "\n\n*(ملاحظة: خوادم Google تواجه ضغطاً كبيراً، لذا أجبتك من خلال الوضع السريع)*";
+            responseText = offlineSmartReply(currentMessageText);
         }
 
         res.json({

@@ -1666,7 +1666,7 @@ window.updateUserUI = function() {
 
 
 /* ══════════════ AUTH & DB SYNC LOGIC ══════════════ */
-const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') ? 'https://eco-bem.vercel.app/api' : '/api';
+const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') ? 'http://localhost:3000/api' : '/api';
 
 window.switchAuth = function(tab) {
   document.getElementById('tab-login').classList.remove('on');
@@ -2716,4 +2716,173 @@ window.installPWA = async () => {
     }
     deferredPrompt = null;
   }
+};
+
+
+/* ═══════════════════════════════════════════════════
+   PODCAST LOGIC
+   ═══════════════════════════════════════════════════ */
+let currentPodcastId = null;
+
+function renderPodcasts(subjectFilter = null) {
+  const listContainer = document.getElementById('podcast-list');
+  if (!listContainer) return;
+  
+  if (typeof podcastData === 'undefined') {
+    listContainer.innerHTML = '<p>جاري تحميل البيانات...</p>';
+    return;
+  }
+  
+  listContainer.innerHTML = '';
+  
+  let filteredData = podcastData;
+  if (subjectFilter) {
+      filteredData = podcastData.filter(p => p.category === subjectFilter);
+  }
+  
+  if (filteredData.length === 0) {
+      listContainer.innerHTML = '<div style="text-align:center; padding: 40px 0; color: var(--text-muted);"><i class="fa-solid fa-microphone-lines-slash" style="font-size:3rem; margin-bottom:15px; opacity:0.5;"></i><p>لا توجد حلقات متوفرة لهذه المادة حالياً. قريباً!</p></div>';
+      return;
+  }
+  
+  filteredData.forEach(pod => {
+    const card = document.createElement('div');
+    card.className = 'podcast-card';
+    card.onclick = () => playPodcast(pod.id);
+    card.innerHTML = `
+      <img src="${pod.coverImage}" class="podcast-img" alt="Cover">
+      <div class="podcast-info">
+        <div class="podcast-title">${pod.title}</div>
+        <div class="podcast-meta">
+          <span><i class="fa-solid fa-tag"></i> ${pod.category}</span>
+          <span><i class="fa-solid fa-clock"></i> ${pod.duration}</span>
+        </div>
+      </div>
+      <div class="podcast-play-icon">
+        <i class="fa-solid fa-play"></i>
+      </div>
+    `;
+    listContainer.appendChild(card);
+  });
+}
+
+function openPodcastSubject(subjectName) {
+    const viewSubjects = document.getElementById('podcast-subjects-view');
+    const viewEpisodes = document.getElementById('podcast-episodes-view');
+    const title = document.getElementById('current-podcast-subject-title');
+    
+    title.innerText = 'حلقات ' + subjectName;
+    renderPodcasts(subjectName);
+    
+    viewSubjects.style.display = 'none';
+    viewEpisodes.style.display = 'block';
+}
+
+function backToPodcastSubjects() {
+    const viewSubjects = document.getElementById('podcast-subjects-view');
+    const viewEpisodes = document.getElementById('podcast-episodes-view');
+    
+    viewEpisodes.style.display = 'none';
+    viewSubjects.style.display = 'block';
+}
+
+
+function playPodcast(id) {
+  if (typeof podcastData === 'undefined') return;
+  const pod = podcastData.find(p => p.id === id);
+  if (!pod) return;
+
+  const player = document.getElementById('podcast-player');
+  const audio = document.getElementById('global-audio');
+  const playBtn = document.getElementById('btn-play-pause');
+  
+  // Show player if hidden
+  player.style.display = 'block';
+  setTimeout(() => {
+    player.classList.remove('podcast-player-hidden');
+    player.classList.add('podcast-player-shown');
+  }, 10);
+
+  if (currentPodcastId === id) {
+    // Toggle play/pause
+    if (audio.paused) {
+      audio.play();
+      playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+    } else {
+      audio.pause();
+      playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+    }
+  } else {
+    // New podcast
+    currentPodcastId = id;
+    document.getElementById('player-title').innerText = pod.title;
+    document.getElementById('player-category').innerText = pod.category;
+    document.getElementById('player-cover').style.backgroundImage = `url('${pod.coverImage}')`;
+    
+    // In a real app we set audio.src = pod.audioSrc. Since it's fake right now:
+    audio.src = pod.audioSrc;
+    audio.play();
+    playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'; // Fake playing state
+    toast('جاري تشغيل: ' + pod.title, 'info');
+  }
+}
+
+function togglePlayPause() {
+  if (!currentPodcastId) return;
+  const audio = document.getElementById('global-audio');
+  const playBtn = document.getElementById('btn-play-pause');
+  if (audio.paused) {
+    audio.play(); // Disabled for fake
+    playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+  } else {
+    // audio.pause(); // Disabled for fake
+    playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+  }
+}
+
+function updateProgress() {
+  const audio = document.getElementById('global-audio');
+  const progressBar = document.getElementById('podcast-progress');
+  if (audio.duration) {
+    const percent = (audio.currentTime / audio.duration) * 100;
+    progressBar.style.width = percent + '%';
+  }
+}
+
+function seekAudio(e) {
+  const audio = document.getElementById('global-audio');
+  const container = e.currentTarget;
+  const rect = container.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const width = rect.width;
+  let percent = clickX / width;
+  
+  if (document.dir === 'rtl') {
+      percent = 1 - percent;
+  }
+  
+  if (audio.duration) {
+    audio.currentTime = percent * audio.duration;
+  }
+}
+
+function resetPlayer() {
+  const playBtn = document.getElementById('btn-play-pause');
+  playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+  document.getElementById('podcast-progress').style.width = '0%';
+}
+
+// Hook renderPodcasts to when the overlay opens
+const originalOpenOverlay = window.openOverlay;
+window.openOverlay = function(id) {
+    if(originalOpenOverlay) originalOpenOverlay(id);
+    if(id === 'podcast') {
+        // Reset to subjects view every time we open it
+        const viewSubjects = document.getElementById('podcast-subjects-view');
+        const viewEpisodes = document.getElementById('podcast-episodes-view');
+        if (viewSubjects && viewEpisodes) {
+            viewEpisodes.style.display = 'none';
+            viewSubjects.style.display = 'block';
+        }
+    }
 };
