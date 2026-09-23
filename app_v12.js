@@ -1191,7 +1191,7 @@ window.startAIFlashcards = async function() {
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout
+        const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 seconds timeout
         
         const token = localStorage.getItem('eco_token');
         const response = await fetch(API_URL + '/chat', {
@@ -1220,51 +1220,12 @@ window.startAIFlashcards = async function() {
         flashCardFlipped = false;
         renderAIFlashcard();
     } catch (e) {
-        console.warn('AI Flashcards failed, using fallback data:', e.message);
-        
-        // Fallback realistic BEM flashcards
-        if (subject.includes('تاريخ') || subject.includes('جغرافيا') || subject.includes('اجتماعيات')) {
-            aiFlashData = [
-                { term: 'بيان أول نوفمبر', definition: 'أول وثيقة لجبهة التحرير الوطني، للإعلان عن انطلاق الثورة وتحديد أهدافها.' },
-                { term: 'مؤتمر الصومام', definition: 'عقد في 20 أوت 1956، لتقييم المرحلة الأولى من الثورة وتنظيمها.' },
-                { term: 'مشروع قسنطينة', definition: 'مشروع إغرائي أطلقه ديغول سنة 1958 لعزل الثورة عن الشعب الجزائري.' },
-                { term: 'التنظيم الإداري للجزائر', definition: 'مقسمة إلى 58 ولاية لتسهيل التسيير وتقريب الإدارة.' },
-                { term: 'الزلازل في الجزائر', definition: 'تتركز في الشمال بسبب وقوع الجزائر في منطقة التقاء الصفيحتين.' }
-            ];
-        } else if (subject.includes('علوم') || subject.includes('طبيعة')) {
-            aiFlashData = [
-                { term: 'الزغابة المعوية', definition: 'مقر الامتصاص المعوي، تتميز بجدار رفيع وغنية بالشعيرات الدموية.' },
-                { term: 'الكريات الدموية الحمراء', definition: 'خلايا دموية خالية من النواة، دورها نقل الغازات التنفسية.' },
-                { term: 'المشبك (Synapse)', definition: 'منطقة اتصال بين عصبونين، يتم فيها انتقال الرسالة العصبية.' },
-                { term: 'الاستجابة المناعية', definition: 'تتدخل فيها الخلايا اللمفاوية للقضاء على المستضد بشكل دقيق.' },
-                { term: 'اللقاح', definition: 'ميكروب ميت أو مضعف يُكسب الجسم مناعة اصطناعية نشطة.' }
-            ];
-        } else if (subject.includes('رياضيات') || subject.includes('حساب')) {
-            aiFlashData = [
-                { term: 'نظرية طالس', definition: 'تستعمل لحساب الأطوال في مثلثين معينين بمستقيمين متوازيين يقطعهما قاطعان.' },
-                { term: 'القاسم المشترك الأكبر', definition: 'هو أكبر عدد يقسم عددين طبيعيين في نفس الوقت.' },
-                { term: 'الدالة التآلفية', definition: 'هي دالة تكتب على الشكل f(x) = ax + b حيث a و b عددان حقيقيان.' },
-                { term: 'نظرية فيثاغورس', definition: 'في مثلث قائم، مربع الوتر يساوي مجموع مربعي الضلعين القائمين.' },
-                { term: 'المتراجحة', definition: 'متباينة تحتوي على مجهول، وحلها يعني إيجاد كل القيم التي تحقق المتباينة.' }
-            ];
-        } else if (subject.includes('عربية') || subject.includes('لغة')) {
-            aiFlashData = [
-                { term: 'الجملة الاسمية', definition: 'الجملة التي تبدأ باسم، وتتكون أساساً من مبتدأ وخبر.' },
-                { term: 'الطباق', definition: 'محسن بديعي معنوي، وهو الجمع بين الكلمة وضدها في الكلام.' },
-                { term: 'الاستعارة المكنية', definition: 'تشبيه بليغ حُذف منه المشبه به ورُمز له بشيء من لوازمه.' },
-                { term: 'عطف البيان', definition: 'تابع جامد يشبه النعت في توضيح متبوعه ولكنه ليس مشتقاً.' },
-                { term: 'الجناس', definition: 'محسن لفظي، وهو تشابه كلمتين في اللفظ واختلافهما في المعنى.' }
-            ];
-        } else {
-            aiFlashData = [
-                { term: 'حقوق المواطن', definition: 'مجموعة من الامتيازات التي يكفلها الدستور لكل فرد في المجتمع.' },
-                { term: 'الإسلام', definition: 'دين الرحمة والتسامح، مبني على خمسة أركان أساسية.' },
-                { term: 'التكنولوجيا', definition: 'تطبيق المعرفة العلمية لأغراض عملية في حياة الإنسان.' },
-                { term: 'البيئة', definition: 'المحيط الذي نعيش فيه ويشمل المكونات الحية وغير الحية.' },
-                { term: 'النجاح', definition: 'ثمرة الاجتهاد والمثابرة والتنظيم الجيد للوقت.' }
-            ];
-        }
-    } // <-- MISSING BRACE ADDED HERE
+        console.warn('AI Flashcards failed:', e.message);
+        document.getElementById('flash-loading').style.display = 'none';
+        document.getElementById('flash-setup').style.display = 'block';
+        alert("تأخر استجابة الذكاء الاصطناعي أو حدث خطأ. يرجى المحاولة مرة أخرى.");
+        return;
+    }
 
     document.getElementById('flash-loading').style.display = 'none';
     document.getElementById('flash-play').style.display = 'block';
@@ -1363,7 +1324,7 @@ window.startAIQuiz = async function() {
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout
+        const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 seconds timeout
         
         const token = localStorage.getItem('eco_token');
         const response = await fetch(API_URL + '/chat', {
@@ -1387,50 +1348,12 @@ window.startAIQuiz = async function() {
         aiQuizData = JSON.parse(match[0]);
         
     } catch (e) {
-        console.warn('AI Quiz failed, using fallback data:', e.message);
-        // Fallback realistic BEM Quiz data
-        if (subject.includes('تاريخ') || subject.includes('جغرافيا') || subject.includes('اجتماعيات')) {
-            aiQuizData = [
-                { q: "متى تم عقد مؤتمر الصومام؟", opts: [ { t: "1954", c: false }, { t: "1956", c: true }, { t: "1958", c: false }, { t: "1962", c: false } ] },
-                { q: "ما هو الهدف الرئيسي لمشروع قسنطينة؟", opts: [ { t: "دعم الثورة", c: false }, { t: "عزل الثورة عن الشعب", c: true }, { t: "تطوير التعليم", c: false }, { t: "بناء جيش فرنسي", c: false } ] },
-                { q: "كم عدد الولايات في التقسيم الإداري الجديد للجزائر؟", opts: [ { t: "48 ولاية", c: false }, { t: "58 ولاية", c: true }, { t: "68 ولاية", c: false }, { t: "50 ولاية", c: false } ] },
-                { q: "أين تتركز الزلازل في الجزائر بشكل رئيسي؟", opts: [ { t: "في الصحراء", c: false }, { t: "في الهضاب العليا", c: false }, { t: "في الشريط الساحلي والشمال", c: true }, { t: "في الجنوب الغربي", c: false } ] },
-                { q: "في أي سنة اندلعت الثورة التحريرية الجزائرية؟", opts: [ { t: "1 نوفمبر 1954", c: true }, { t: "5 جويلية 1962", c: false }, { t: "8 ماي 1945", c: false }, { t: "20 أوت 1955", c: false } ] }
-            ];
-        } else if (subject.includes('علوم') || subject.includes('طبيعة')) {
-            aiQuizData = [
-                { q: "أين يتم امتصاص المغذيات في جسم الإنسان؟", opts: [ { t: "في المعدة", c: false }, { t: "في الزغابة المعوية", c: true }, { t: "في المعي الغليظ", c: false }, { t: "في الكبد", c: false } ] },
-                { q: "ما هو دور الكريات الدموية الحمراء؟", opts: [ { t: "الدفاع عن الجسم", c: false }, { t: "تخثر الدم", c: false }, { t: "نقل الغازات التنفسية", c: true }, { t: "نقل المغذيات فقط", c: false } ] },
-                { q: "ما هو المشبك؟", opts: [ { t: "عظمة في اليد", c: false }, { t: "خلية دموية", c: false }, { t: "منطقة اتصال بين عصبونين", c: true }, { t: "غدة هاضمة", c: false } ] },
-                { q: "أي الخلايا مسؤولة عن الاستجابة المناعية النوعية الخلطية؟", opts: [ { t: "البلعميات", c: false }, { t: "الخلايا اللمفاوية البائية (LB)", c: true }, { t: "الكريات الحمراء", c: false }, { t: "الخلايا اللمفاوية التائية (LT)", c: false } ] },
-                { q: "اللقاح يكسب الجسم مناعة...", opts: [ { t: "سلبية ومؤقتة", c: false }, { t: "طبيعية وفطرية", c: false }, { t: "نشطة وطويلة المدى", c: true }, { t: "لا يكسب أي مناعة", c: false } ] }
-            ];
-        } else if (subject.includes('رياضيات') || subject.includes('حساب')) {
-            aiQuizData = [
-                { q: "ما هو القاسم المشترك الأكبر (PGCD) للعددين 12 و 18؟", opts: [ { t: "2", c: false }, { t: "6", c: true }, { t: "4", c: false }, { t: "3", c: false } ] },
-                { q: "في نظرية طالس، ماذا ينتج عن مستقيمين متوازيين يقطعهما قاطعان؟", opts: [ { t: "مثلثات متقايسة", c: false }, { t: "نسب أطوال متساوية", c: true }, { t: "زوايا قائمة", c: false }, { t: "دوائر متطابقة", c: false } ] },
-                { q: "حل المتراجحة 2x > 4 هو:", opts: [ { t: "x = 2", c: false }, { t: "x < 2", c: false }, { t: "x > 2", c: true }, { t: "x > 4", c: false } ] },
-                { q: "الدالة التآلفية تكتب على الشكل:", opts: [ { t: "f(x) = ax", c: false }, { t: "f(x) = x^2", c: false }, { t: "f(x) = ax + b", c: true }, { t: "f(x) = a/x", c: false } ] },
-                { q: "في مثلث قائم، حسب نظرية فيثاغورس:", opts: [ { t: "مربع الوتر يساوي مجموع مربعي الضلعين القائمين", c: true }, { t: "الوتر يساوي مجموع الضلعين", c: false }, { t: "الوتر هو أصغر ضلع", c: false }, { t: "الزاوية القائمة قياسها 180", c: false } ] }
-            ];
-        } else if (subject.includes('عربية') || subject.includes('لغة')) {
-            aiQuizData = [
-                { q: "كيف تسمى الجملة التي تبدأ باسم؟", opts: [ { t: "جملة فعلية", c: false }, { t: "جملة شبه جملة", c: false }, { t: "جملة اسمية", c: true }, { t: "جملة شرطية", c: false } ] },
-                { q: "الجمع بين الكلمة وضدها في نفس الجملة يسمى:", opts: [ { t: "جناس", c: false }, { t: "طباق", c: true }, { t: "سجع", c: false }, { t: "مقابلة", c: false } ] },
-                { q: "التشبيه البليغ الذي حُذف منه المشبه به ورُمز له بشيء من لوازمه هو:", opts: [ { t: "استعارة تصريحية", c: false }, { t: "استعارة مكنية", c: true }, { t: "تشبيه تام", c: false }, { t: "كناية", c: false } ] },
-                { q: "ما هو عطف البيان؟", opts: [ { t: "تابع جامد يوضح متبوعه", c: true }, { t: "اسم مرفوع دائماً", c: false }, { t: "فعل ماضٍ مبني", c: false }, { t: "حرف جر", c: false } ] },
-                { q: "من المحسنات البديعية اللفظية:", opts: [ { t: "الطباق", c: false }, { t: "المقابلة", c: false }, { t: "الجناس", c: true }, { t: "التشبيه", c: false } ] }
-            ];
-        } else {
-            aiQuizData = [
-                { q: "ما هي عاصمة الجزائر؟", opts: [ { t: "وهران", c: false }, { t: "الجزائر العاصمة", c: true }, { t: "عنابة", c: false }, { t: "قسنطينة", c: false } ] },
-                { q: "من بنى مسجد باريس؟", opts: [ { t: "عبد الحميد بن باديس", c: false }, { t: "قدور بن غبريط", c: true }, { t: "الأمير عبد القادر", c: false }, { t: "مصالي الحاج", c: false } ] },
-                { q: "ما هو أطول نهر في العالم؟", opts: [ { t: "الأمازون", c: false }, { t: "دجلة", c: false }, { t: "النيل", c: true }, { t: "الدانوب", c: false } ] },
-                { q: "متى استقلت الجزائر؟", opts: [ { t: "1954", c: false }, { t: "1962", c: true }, { t: "1945", c: false }, { t: "1960", c: false } ] },
-                { q: "كم عدد أركان الإسلام؟", opts: [ { t: "3", c: false }, { t: "4", c: false }, { t: "5", c: true }, { t: "6", c: false } ] }
-            ];
-        }
-    } // <-- MISSING BRACE ADDED HERE
+        console.warn('AI Quiz failed:', e.message);
+        document.getElementById('quiz-loading').style.display = 'none';
+        document.getElementById('quiz-setup').style.display = 'block';
+        alert("تأخر استجابة الذكاء الاصطناعي أو حدث خطأ. يرجى المحاولة مرة أخرى.");
+        return;
+    }
 
     document.getElementById('quiz-loading').style.display = 'none';
     document.getElementById('quiz-box').style.display = 'block';
