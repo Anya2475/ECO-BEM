@@ -241,9 +241,12 @@ window.updateGlobalUI = async function() {
   const myXp = document.getElementById('my-xp');
   if (myXp) myXp.textContent = xp + ' XP';
   
-  // Try to update dashboard if open
+  // Update UI sections if they are active
   if (document.getElementById('ov-stats2')?.classList.contains('on')) {
       if(typeof renderAnalytics === 'function') renderAnalytics();
+  }
+  if (document.getElementById('tab-stats')?.classList.contains('on')) {
+      if(typeof renderDashboard === 'function') renderDashboard();
   }
 };
 
@@ -253,9 +256,22 @@ window.resetAllStats = async function() {
   await EcoDB.setStat('streak', 0);
   await EcoDB.setStat('bestStreak', 0);
   await EcoDB.setStat('lastActiveDate', '');
+  
   localStorage.setItem('eco_user_coins_v2', '0');
+  localStorage.setItem('eco_bem_stats_v2', '[]');
+  
+  try {
+    const d = await openDB();
+    const stores = ['achievements', 'attempts', 'sessions', 'moods'];
+    const tx = d.transaction(stores, 'readwrite');
+    stores.forEach(s => tx.objectStore(s).clear());
+    await new Promise(r => { tx.oncomplete = r; tx.onerror = r; });
+  } catch (e) {
+    console.error('Clear DB Error:', e);
+  }
+  
   await window.updateGlobalUI();
-  toast("تم تصفير جميع النقاط بنجاح", "ok");
+  toast("تم تصفير جميع النقاط والتقدم بنجاح", "ok");
 };
 
 /* ═══ User Name ═══ */
