@@ -152,7 +152,7 @@ body.light .topbar{background:rgba(245,253,245,.9); border-bottom:1px solid rgba
   display:flex;align-items:center;justify-content:center;
 }
 .brand img{
-  height:44px;width:auto;
+  height:60px;width:auto;
   border-radius:50%;
   mix-blend-mode:lighten;
   box-shadow: 0 0 12px rgba(141,198,63,.5);
@@ -185,13 +185,13 @@ body.light .brand img{mix-blend-mode:multiply;}
 }
 .pill.lime:hover{background:rgba(168,85,247,.2);}
 .avatar-mini{
-  width:26px;height:26px;border-radius:50%;
+  width:34px;height:34px;border-radius:50%;
   background:linear-gradient(135deg,#8dc63f,#6366f1);
   display:flex;align-items:center;justify-content:center;
-  font-size:.75rem;font-weight:700;color:#09090b;
+  font-size:1rem;font-weight:700;color:#09090b;
 }
 @media(max-width:640px){
-  .brand img{height:34px;}
+  .brand img{height:48px;}
   .hide-m{display:none;}
 }
 
