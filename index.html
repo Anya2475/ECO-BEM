@@ -105,6 +105,7 @@
       <li><i class="fa-solid fa-check"></i> فيديوهات دروس HD</li>
       <li><i class="fa-solid fa-check"></i> معلم AI بلا حدود</li>
       <li><i class="fa-solid fa-check"></i> مزامنة سحابية كاملة</li>
+      <li><i class="fa-solid fa-check"></i> فتح جميع برامج البودكاست التعليمية</li>
     </ul>
     <button class="premium-cta" onclick="openPayments()">
       <span>عرض الخطط والدفع</span>
@@ -503,13 +504,13 @@
           </div>
           <ul style="list-style:none;padding:0;margin:20px 0;display:flex;flex-direction:column;gap:14px;font-size:0.9rem">
             <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> مادتان فقط (عربية ورياضيات)</li>
-            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> مواضيع BEM (آخر سنتين فقط)</li>
-            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> مساحة للمحاولة وحفظ الإجابات</li>
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> مواضيع الامتحان (آخر سنتين فقط)</li>
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> بودكاست التاريخ والجغرافيا فقط</li>
             <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> معلم الذكاء الاصطناعي (محدود)</li>
+            <li style="color:var(--text-muted)"><i class="fa-solid fa-xmark" style="color:#ef4444;width:24px;text-align:center"></i> بودكاست باقي المواد (مقفلة)</li>
             <li style="color:var(--text-muted)"><i class="fa-solid fa-xmark" style="color:#ef4444;width:24px;text-align:center"></i> إحصائيات لمتابعة التطور (مقفلة)</li>
             <li style="color:var(--text-muted)"><i class="fa-solid fa-xmark" style="color:#ef4444;width:24px;text-align:center"></i> باقي المواد السبعة (مقفلة)</li>
             <li style="color:var(--text-muted)"><i class="fa-solid fa-xmark" style="color:#ef4444;width:24px;text-align:center"></i> ملخصات وخرائط ذهنية (مقفلة)</li>
-            <li style="color:var(--text-muted)"><i class="fa-solid fa-xmark" style="color:#ef4444;width:24px;text-align:center"></i> بنك مواضيع مقترحة (مقفلة)</li>
           </ul>
           <button class="btn btn-ghost btn-block" disabled>خطتك الحالية</button>
         </div>
@@ -530,13 +531,13 @@
           </div>
           <ul style="list-style:none;padding:0;margin:20px 0;display:flex;flex-direction:column;gap:14px;font-size:0.9rem">
             <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> <strong>وصول كامل لجميع المواد التسعة</strong></li>
-            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> أرشيف BEM الشامل لكل السنوات</li>
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> <strong>جميع برامج البودكاست التعليمية</strong></li>
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> أرشيف شامل للامتحانات السابقة</li>
             <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> مساحة لا محدودة لحفظ الإجابات</li>
             <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> معلم ذكاء اصطناعي (AI) متاح 24/7</li>
             <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> إحصائيات لمتابعة التطور ونقاط الضعف</li>
             <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> مكتبة شاملة للدروس والتمارين</li>
-            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> ملخصات جاهزة وخرائط ذهنية للدروس</li>
-            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> بنك مواضيع مقترحة مع الحل المفصل</li>
+            <li><i class="fa-solid fa-check" style="color:#10b981;width:24px;text-align:center"></i> ملخصات وخرائط ذهنية للدروس</li>
           </ul>
           <div style="display:flex;gap:12px;flex-direction:column">
             <button class="btn btn-primary btn-block" style="white-space:normal;height:auto;padding:12px;" onclick="contactForPayment('monthly')">
@@ -631,21 +632,25 @@
           <div class="pod-sub-icon" style="background: rgba(16,185,129,0.15); color: #10b981;"><i class="fa-solid fa-earth-africa"></i></div>
           <div class="pod-sub-name">الجغرافيا</div>
         </div>
-        <div class="pod-sub-card" onclick="openPodcastSubject('التربية الإسلامية')">
+        <div class="pod-sub-card" style="position:relative;" onclick="togglePremium(true, 'بودكاست التربية الإسلامية')">
           <div class="pod-sub-icon" style="background: rgba(168,85,247,0.15); color: #a855f7;"><i class="fa-solid fa-mosque"></i></div>
           <div class="pod-sub-name">التربية الإسلامية</div>
+          <i class="fa-solid fa-lock" style="position:absolute; top:10px; left:10px; color:var(--text-muted); font-size:0.85rem;"></i>
         </div>
-        <div class="pod-sub-card" onclick="openPodcastSubject('التربية المدنية')">
+        <div class="pod-sub-card" style="position:relative;" onclick="togglePremium(true, 'بودكاست التربية المدنية')">
           <div class="pod-sub-icon" style="background: rgba(56,189,248,0.15); color: #38bdf8;"><i class="fa-solid fa-scale-balanced"></i></div>
           <div class="pod-sub-name">التربية المدنية</div>
+          <i class="fa-solid fa-lock" style="position:absolute; top:10px; left:10px; color:var(--text-muted); font-size:0.85rem;"></i>
         </div>
-        <div class="pod-sub-card" onclick="openPodcastSubject('الفرنسية')">
+        <div class="pod-sub-card" style="position:relative;" onclick="togglePremium(true, 'بودكاست الفرنسية')">
           <div class="pod-sub-icon" style="background: rgba(244,63,94,0.15); color: #f43f5e;"><i class="fa-solid fa-language"></i></div>
           <div class="pod-sub-name">الفرنسية</div>
+          <i class="fa-solid fa-lock" style="position:absolute; top:10px; left:10px; color:var(--text-muted); font-size:0.85rem;"></i>
         </div>
-        <div class="pod-sub-card" onclick="openPodcastSubject('الإنجليزية')">
+        <div class="pod-sub-card" style="position:relative;" onclick="togglePremium(true, 'بودكاست الإنجليزية')">
           <div class="pod-sub-icon" style="background: rgba(99,102,241,0.15); color: #6366f1;"><i class="fa-solid fa-globe"></i></div>
           <div class="pod-sub-name">الإنجليزية</div>
+          <i class="fa-solid fa-lock" style="position:absolute; top:10px; left:10px; color:var(--text-muted); font-size:0.85rem;"></i>
         </div>
         <div class="pod-sub-card" onclick="openPodcastSubject('تحفيز')">
           <div class="pod-sub-icon" style="background: rgba(255,165,0,0.15); color: orange;"><i class="fa-solid fa-fire"></i></div>
