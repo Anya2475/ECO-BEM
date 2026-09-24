@@ -177,6 +177,9 @@
           <i class="fa-solid fa-coins" style="font-size:1.2rem;"></i><span style="font-weight:900;font-size:1.3rem;" id="ui-coins">0</span>
         </div>
       </button>
+      <button class="icon-btn" onclick="openOverlay('store')" aria-label="متجر الأبطال" style="color:#a4d466; margin-right:8px; width:45px; height:45px;">
+        <i class="fa-solid fa-store"></i>
+      </button>
     </div>
     <div class="brand">
       <img src="./logo.png" alt="ECO-BEM" onerror="this.outerHTML='<span style=\'font-family:var(--font-serif);font-size:1.6rem;font-weight:900;color:#a4d466\'>ECO-BEM</span>'">
@@ -944,6 +947,22 @@
   </div>
 </div>
 
+<!-- Store Overlay -->
+<div class="overlay" id="ov-store">
+  <div class="overlay-head">
+    <button class="back" onclick="closeOverlay('store')">
+      <i class="fa-solid fa-arrow-right"></i>
+    </button>
+    <h2><i class="fa-solid fa-store"></i> متجر الأبطال</h2>
+    <div style="display:flex;align-items:center;gap:8px;color:#fbbf24;margin-right:auto;">
+      <i class="fa-solid fa-coins"></i><span style="font-weight:900;" id="store-ui-coins">0</span>
+    </div>
+  </div>
+  <div class="overlay-body" style="padding-bottom:100px;" id="store-container">
+    <!-- Store items will be injected here via JS -->
+  </div>
+</div>
+
 <!-- Account -->
 <div class="overlay" id="ov-account">
   <div class="overlay-head">
@@ -1048,6 +1067,7 @@
   <script src="./js/ai.js?v=1"></script>
   <script src="./js/zen.js?v=1"></script>
   <script src="./js/annals.js?v=1"></script>
+  <script src="./js/store.js?v=1"></script>
   <script src="./js/main.js?v=1"></script>
 <script>
   if ('serviceWorker' in navigator) {

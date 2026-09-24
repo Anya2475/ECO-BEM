@@ -373,9 +373,15 @@
 
                 if (user.name === ecoCurrent.userName) myRank = rank;
 
-                let avatarHtml = `<div class="eco-avatar" style="width:40px; height:40px; font-size:20px;">${avatar}</div>`;
+                let borderCss = '';
+                if (user.active_border === 'border_bronze') borderCss = 'border: 3px solid #cd7f32;';
+                if (user.active_border === 'border_silver') borderCss = 'border: 3px solid #c0c0c0;';
+                if (user.active_border === 'border_gold') borderCss = 'border: 3px solid #fbbf24; box-shadow: 0 0 10px #fbbf24;';
+                if (user.active_border === 'border_fire') borderCss = 'border: 3px solid transparent; background: linear-gradient(#1e293b, #1e293b) padding-box, linear-gradient(to right, #ef4444, #f97316) border-box;';
+
+                let avatarHtml = `<div class="eco-avatar" style="width:40px; height:40px; font-size:20px; ${borderCss}">${avatar}</div>`;
                 if (user.avatar_url && user.avatar_url.startsWith('data:image')) {
-                    avatarHtml = `<div class="eco-avatar" style="width:40px; height:40px; background-image:url(${user.avatar_url}); background-size:cover; border-radius:50%;"></div>`;
+                    avatarHtml = `<div class="eco-avatar" style="width:40px; height:40px; background-image:url(${user.avatar_url}); background-size:cover; border-radius:50%; ${borderCss}"></div>`;
                 }
 
                 html += `

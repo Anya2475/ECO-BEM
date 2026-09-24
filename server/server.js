@@ -212,7 +212,7 @@ app.post('/api/auth/login', async (req, res) => {
 // Get Leaderboard Data
 app.get('/api/leaderboard', async (req, res) => {
     try {
-        const result = await db.query('SELECT name, xp, avatar_url FROM users ORDER BY xp DESC LIMIT 20');
+        const result = await db.query('SELECT name, xp, avatar_url, active_border FROM users ORDER BY xp DESC LIMIT 20');
         res.json(result.rows);
     } catch(err) {
         console.error(err);
@@ -223,7 +223,7 @@ app.get('/api/leaderboard', async (req, res) => {
 // Get Current User Data
 app.get('/api/user/me', authenticateToken, async (req, res) => {
     try {
-        const result = await db.query('SELECT id, name, email, xp, coins, rank, streak, avatar_url, dream_goal, plan_type FROM users WHERE id = $1', [req.user.id]);
+        const result = await db.query('SELECT id, name, email, xp, coins, rank, streak, avatar_url, dream_goal, plan_type, active_border, inventory FROM users WHERE id = $1', [req.user.id]);
         if (result.rows.length === 0) return res.sendStatus(404);
         res.json(result.rows[0]);
     } catch(err) {
@@ -234,7 +234,7 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
 // Update User Data
 app.post('/api/user/update', authenticateToken, async (req, res) => {
     try {
-        const { xp, coins, avatar_url, dream_goal, streak, plan_type } = req.body;
+        const { xp, coins, avatar_url, dream_goal, streak, plan_type, active_border, inventory } = req.body;
         
         // Dynamic update query
         const updates = [];
@@ -247,6 +247,8 @@ app.post('/api/user/update', authenticateToken, async (req, res) => {
         if (dream_goal !== undefined) { updates.push(`dream_goal = $${i++}`); values.push(dream_goal); }
         if (streak !== undefined) { updates.push(`streak = $${i++}`); values.push(streak); }
         if (plan_type !== undefined) { updates.push(`plan_type = $${i++}`); values.push(plan_type); }
+        if (active_border !== undefined) { updates.push(`active_border = $${i++}`); values.push(active_border); }
+        if (inventory !== undefined) { updates.push(`inventory = $${i++}`); values.push(JSON.stringify(inventory)); }
         
         if (updates.length > 0) {
             values.push(req.user.id);

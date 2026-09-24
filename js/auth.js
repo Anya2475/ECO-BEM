@@ -88,6 +88,26 @@ window.loadAvatar = function() {
         miniEl.style.color = 'transparent'; // hide text
       }
     }
+    
+    // Apply Active Border
+    const activeBorder = localStorage.getItem('eco_active_border');
+    if (activeBorder) {
+        let borderCss = '';
+        if (activeBorder === 'border_bronze') borderCss = '3px solid #cd7f32';
+        if (activeBorder === 'border_silver') borderCss = '3px solid #c0c0c0';
+        if (activeBorder === 'border_gold') borderCss = '3px solid #fbbf24';
+        if (activeBorder === 'border_fire') borderCss = '3px solid #ef4444'; // Simplified for inline styles
+        
+        if (avatarEl) avatarEl.style.border = borderCss;
+        if (drawerAvatarEl) drawerAvatarEl.style.border = borderCss;
+        if (miniEl) miniEl.style.border = borderCss;
+        
+        if (activeBorder === 'border_gold') {
+            if (avatarEl) avatarEl.style.boxShadow = '0 0 10px #fbbf24';
+            if (drawerAvatarEl) drawerAvatarEl.style.boxShadow = '0 0 10px #fbbf24';
+            if (miniEl) miniEl.style.boxShadow = '0 0 10px #fbbf24';
+        }
+    }
   } catch(e) {}
 };
 
@@ -211,6 +231,8 @@ window.syncUserData = async function() {
       setUserName(user.name, true);
       if (user.avatar_url) localStorage.setItem('eco_user_avatar', user.avatar_url);
       if (user.dream_goal) localStorage.setItem('eco_user_dream', user.dream_goal);
+      if (user.active_border) localStorage.setItem('eco_active_border', user.active_border);
+      if (user.inventory) localStorage.setItem('eco_user_inventory', JSON.stringify(user.inventory));
       // Force overwrite local XP, Coins, Streak with DB truth
       if (typeof EcoDB !== 'undefined' && EcoDB.setStat) {
         EcoDB.setStat('xp', user.xp || 0);
@@ -505,12 +527,19 @@ window.loadLeaderboard = async function() {
             const div = document.createElement('div');
             div.className = rowClass;
             
+            // Store borders
+            let borderCss = '';
+            if (user.active_border === 'border_bronze') borderCss = 'border: 3px solid #cd7f32;';
+            if (user.active_border === 'border_silver') borderCss = 'border: 3px solid #c0c0c0;';
+            if (user.active_border === 'border_gold') borderCss = 'border: 3px solid #fbbf24; box-shadow: 0 0 10px #fbbf24;';
+            if (user.active_border === 'border_fire') borderCss = 'border: 3px solid transparent; background: linear-gradient(var(--surface-light), var(--surface-light)) padding-box, linear-gradient(to right, #ef4444, #f97316) border-box;';
+
             // Generate avatar if not present
             let avatarHtml = `<span class="rank-num">${index + 1}</span>`;
             if (user.avatar_url && user.avatar_url.trim() !== '') {
                 avatarHtml = `<div style="display:flex;align-items:center;gap:10px;">
                                 <span class="rank-num">${index + 1}</span>
-                                <div style="width:30px;height:30px;border-radius:50%;background:url('${user.avatar_url}') center/cover;border:1px solid rgba(255,255,255,0.2)"></div>
+                                <div style="width:30px;height:30px;border-radius:50%;background:url('${user.avatar_url}') center/cover;${borderCss || 'border:1px solid rgba(255,255,255,0.2);'}"></div>
                               </div>`;
             }
             
