@@ -59,8 +59,9 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
         const encodedKeys = "QVEuQWI4Uk42TG40aXBCM0hfTm5WTG81aGJGM2lLaktGWFp2dkZqbXdwYkdYQ1ZydnR6c3csQVEuQWI4Uk42SXhZRlo2QURCN1FmZnpkVjdGSG56aU5PSElaT3ZLRUxQZk45U2F1b2s4VUEsQVEuQWI4Uk42TExZTUZyckpKWmF5MW1HS1EyWTRhRkNJd2JIazM4cTU4Zl9FdDVrb0FfR2csQVEuQWI4Uk42SldiSWF1TG8yeFpUdjE5UDhBOF8tMU1kdHJYRk1uMzVCN3NyWjdqM3QtUUEsQVEuQWI4Uk42TFpxNkRqNHc2TWN0ZVhodmVXNmlKZkdwMWYtc3hQVDVyYWpDcER2ci1wM2csQVEuQWI4Uk42TGp6cTBfd1hLYjlWVDJhTDBpVlJPdWROc25ZS2J3LXNMam1hbFU0NXJTa0EsQVEuQWI4Uk42SVA0ZEsxYXhNQ1V0RVF0WlBPNzk3aUpjLXBzZmEtVEtqM1I0SWl5a3kzMlEsQVEuQWI4Uk42S00wZjVUTER3SFlNbDYzVjRYTE5pSXFBcFpJa1dRVzJSMlZMTzNjSTdKc3csQVEuQWI4Uk42SXNBcVBmUlN5UEJPSEtncjFEcEtwaUgyOTVBelZzcGpWOGxHTUFBV3RWTEEsQVEuQWI4Uk42SUJCQkVDaGVwNFhORWxJLWxoeDMybU11SXNzemdVV1RKLTV2U2JfVmJYc1EsQVEuQWI4Uk42Snpmd01qM1BMNnBsN2w5NXNGTGhHU1JfVUttb093N3UwVnhSTU4zTllteHcsQVEuQWI4Uk42SUFPVWF2ZzZGcW5ncVJ2UjVBR3c0dUdET1VNQmdDODdkZDc2N1VSdlp1bHcsQVEuQWI4Uk42Sm80RUNLTDdHRnRCQlRqdjVlbHJLbW5rTm5lQ3FhdUdiUEY1bFBUR2lzMXcsQVEuQWI4Uk42TEpWaXBCTzVIMkpYZ0VWaFBqN1NqUHRHeXVRbU1tUGJlcE9vUnJaTW9rbGcsQVEuQWI4Uk42SXMzN1gzNG9MOFBuaHBtLVdDQTlWQ0hpZlEzYkVwSU8zQ1FiUzdaRTJtMncsQVEuQWI4Uk42TE9qeDlyODJGY1JEWDNQX2EtbEtrVG5XVFk1Z2ZvT0NSUWwzTExOUHNxUEE=";
         const fallbackKey = Buffer.from(encodedKeys, 'base64').toString('utf-8');
         
-        // Use API Key from .env or fallback. Support multiple keys separated by comma
-        const apiKeysString = process.env.GEMINI_API_KEY || fallbackKey;
+        // Use API Key from .env and fallback. Combine them so Vercel's old env variable doesn't override the 16 new keys!
+        const envKey = process.env.GEMINI_API_KEY || "";
+        const apiKeysString = envKey + "," + fallbackKey;
         const apiKeys = apiKeysString.split(',').map(k => k.trim()).filter(k => k.length > 0);
 
         if (apiKeys.length === 0) {
