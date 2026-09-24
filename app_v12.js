@@ -148,6 +148,9 @@ const EcoDB = {
   async getStat(key) { const r = await dbGet('stats', key); return r ? r.value : null; },
   async setStat(key, value) { return dbPut('stats', { key, value, updatedAt: new Date().toISOString() }); },
   async addXP(amount) {
+    if (amount > 0) {
+      try { await this.updateStreak(); } catch(e) {}
+    }
     const cur = (await this.getStat('xp')) || 0;
     const nxt = cur + amount;
     await this.setStat('xp', nxt);
