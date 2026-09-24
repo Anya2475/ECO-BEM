@@ -892,11 +892,16 @@
   
   <!-- AI Teacher -->
 <div class="overlay" id="ov-teacher">
-  <div class="overlay-head">
-    <button class="back" onclick="closeOverlay('teacher')">
-      <i class="fa-solid fa-arrow-right"></i>
+  <div class="overlay-head" style="display:flex; justify-content:space-between; align-items:center;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <button class="back" onclick="closeOverlay('teacher')">
+        <i class="fa-solid fa-arrow-right"></i>
+      </button>
+      <h2><i class="fa-solid fa-robot"></i> المعلم الذكي AI</h2>
+    </div>
+    <button onclick="clearAIChatHistory()" style="background:none; border:none; color:#ef4444; font-size:1.2rem; cursor:pointer;" title="حذف المحادثة">
+      <i class="fa-solid fa-trash"></i>
     </button>
-    <h2><i class="fa-solid fa-robot"></i> المعلم الذكي AI</h2>
   </div>
   <div class="overlay-body">
     <div class="chat-wrap">

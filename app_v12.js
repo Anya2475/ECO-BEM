@@ -112,6 +112,15 @@ async function dbGetAll(store) {
     req.onerror = () => rej(req.error);
   });
 }
+async function dbClear(store) {
+  const d = await openDB();
+  return new Promise((res, rej) => {
+    const tx = d.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).clear();
+    req.onsuccess = () => res();
+    req.onerror = () => rej(req.error);
+  });
+}
 async function dbCount(store) {
   const d = await openDB();
   return new Promise((res, rej) => {
@@ -483,6 +492,56 @@ const AITeacher = {
     } catch(e) {}
   }
 };
+
+async function loadAIChatHistory() {
+  const list = document.getElementById('chat');
+  if (!list) return;
+  list.innerHTML = '';
+  
+  const welcomeMsg = document.createElement('div');
+  welcomeMsg.className = 'bubble ai';
+  welcomeMsg.innerHTML = '<strong>أهلاً بك يا بطل! 🎓</strong><br>اطرح عليّ أي سؤال حول دروس المقطع الأول. سأشرح لك بأمثلة من المنهج الجزائري.';
+  list.appendChild(welcomeMsg);
+  
+  AITeacher.history = [{ role: "system", content: "أنت معلم ذكي ومرح مخصص لمساعدة طلاب شهادة التعليم المتوسط (BEM) في الجزائر. اسمك 'المعلم الذكي'." }];
+  
+  try {
+    const messages = await dbGetAll('ai_messages');
+    if (messages && messages.length > 0) {
+      messages.forEach(msg => {
+        if (msg.userMessage) {
+          const userBubble = document.createElement('div');
+          userBubble.className = 'bubble me';
+          userBubble.textContent = msg.userMessage;
+          list.appendChild(userBubble);
+          AITeacher.history.push({ role: 'user', content: msg.userMessage });
+        }
+        if (msg.aiReply) {
+          const aiBubble = document.createElement('div');
+          aiBubble.className = 'bubble ai';
+          aiBubble.innerHTML = AITeacher.renderMarkdown(msg.aiReply);
+          list.appendChild(aiBubble);
+          AITeacher.history.push({ role: 'assistant', content: msg.aiReply });
+        }
+      });
+      if (typeof renderMathIn === 'function') renderMathIn(list);
+    }
+  } catch(e) {
+    console.error('Failed to load chat history', e);
+  }
+  setTimeout(() => list.scrollTop = list.scrollHeight, 100);
+}
+
+async function clearAIChatHistory() {
+  if (!confirm("هل أنت متأكد أنك تريد حذف المحادثة بأكملها؟")) return;
+  try {
+    await dbClear('ai_messages');
+    await loadAIChatHistory();
+    toast('تم حذف المحادثة بنجاح!', 'success');
+  } catch(e) {
+    toast('حدث خطأ أثناء الحذف', 'error');
+  }
+}
 
 /* ═══ LMS — Learning Path ═══ */
 let lp = { subj: 'ar', idx: 0, step: 0, score: 0, mistakes: 0 };
@@ -1165,7 +1224,7 @@ function openOverlay(id) {
   else if (id === 'zen') generateMoodButtons();
   else if (id === 'notif') renderNotifSettings();
   else if (id === 'sync') renderSyncPanel(); 
-  
+  else if (id === 'teacher') loadAIChatHistory();
   else if (id === 'rank' && typeof window.loadLeaderboard === 'function') window.loadLeaderboard();
 }
 
