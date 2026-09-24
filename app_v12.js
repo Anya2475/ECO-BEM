@@ -153,6 +153,9 @@ const EcoDB = {
     await this.setStat('xp', nxt);
     const lvl = Math.floor(nxt/100) + 1;
     const oldLvl = Math.floor(cur/100) + 1;
+    
+    if (typeof window.updateGlobalUI === 'function') await window.updateGlobalUI();
+    
     if (lvl > oldLvl) {
       await this.unlockAchievement(`level-${lvl}`, `وصلت للمستوى ${lvl}`, '🎖️');
       return { level: lvl, leveledUp: true, xp: nxt };
@@ -171,6 +174,9 @@ const EcoDB = {
     await this.setStat('streak', nxt);
     await this.setStat('lastActiveDate', today);
     if (nxt > best) await this.setStat('bestStreak', nxt);
+    
+    if (typeof window.updateGlobalUI === 'function') await window.updateGlobalUI();
+    
     return nxt;
   },
   async getStreak() {
@@ -212,6 +218,44 @@ const EcoDB = {
       recentAchievements: achievements.slice(-3).reverse()
     };
   }
+};
+
+window.updateGlobalUI = async function() {
+  const xp = (await EcoDB.getStat('xp')) || 0;
+  const streakData = await EcoDB.getStreak();
+  const streak = streakData.current || 0;
+  const coins = parseInt(localStorage.getItem('eco_user_coins_v2')) || 0;
+  
+  window.userXP = xp;
+  window.userCoins = coins;
+
+  const uiCoins = document.getElementById('ui-coins');
+  if (uiCoins) uiCoins.textContent = coins;
+  
+  const uiStreak = document.getElementById('ui-streak');
+  if (uiStreak) uiStreak.textContent = streak;
+  
+  const accXp = document.getElementById('acc-xp');
+  if (accXp) accXp.textContent = xp;
+  
+  const myXp = document.getElementById('my-xp');
+  if (myXp) myXp.textContent = xp + ' XP';
+  
+  // Try to update dashboard if open
+  if (document.getElementById('ov-stats2')?.classList.contains('on')) {
+      if(typeof renderAnalytics === 'function') renderAnalytics();
+  }
+};
+
+window.resetAllStats = async function() {
+  if(!confirm("هل أنت متأكد من تصفير جميع النقاط والعملات والتقدم؟")) return;
+  await EcoDB.setStat('xp', 0);
+  await EcoDB.setStat('streak', 0);
+  await EcoDB.setStat('bestStreak', 0);
+  await EcoDB.setStat('lastActiveDate', '');
+  localStorage.setItem('eco_user_coins_v2', '0');
+  await window.updateGlobalUI();
+  toast("تم تصفير جميع النقاط بنجاح", "ok");
 };
 
 /* ═══ User Name ═══ */
@@ -1535,7 +1579,8 @@ window.addEventListener('unhandledrejection', (e) => {
 });
 
 /* ═══ Auto-Init ═══ */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  if (typeof window.updateGlobalUI === 'function') await window.updateGlobalUI();
   loadTheme();
   renderUserName();
   try { renderCard(); } catch(e) {}
@@ -1853,11 +1898,11 @@ window.setUserName = function(name, skipSync = false) {
 /* 🪙🪙🪙 DAILY QUESTS & COINS LOGIC 🪙🪙🪙 */
 window.userCoins = parseInt(localStorage.getItem('eco_user_coins_v2')) || 0;
 
-window.addPoints = function(amount, reason) {
+window.addPoints = async function(amount, reason) {
     window.userCoins += amount;
     localStorage.setItem('eco_user_coins_v2', window.userCoins);
-    const coinsEl = document.getElementById('ui-coins');
-    if (coinsEl) coinsEl.textContent = window.userCoins;
+    if (typeof window.saveToDB === 'function') window.saveToDB({ coins: window.userCoins });
+    if (typeof window.updateGlobalUI === 'function') await window.updateGlobalUI();
     
     let stats = [];
     try {
@@ -1895,16 +1940,11 @@ window.completeQuest = async function(questId) {
   // Award XP
   try { await EcoDB.addXP(q.xpReward); } catch(e) {}
   
-  // Award Coins
-  window.userCoins += q.coinsReward;
-  const coinsEl = document.getElementById('ui-coins');
-  if (coinsEl) coinsEl.textContent = window.userCoins;
+  // Award Coins and sync UI
+  await window.addPoints(q.coinsReward, 'إنجاز مهمة');
   
   toast(`مهمة منجزة! حصلت على ${q.xpReward} XP و ${q.coinsReward} عملات ذهبية`, 'ok');
   Sound.ok();
-  
-  // Save coins to DB
-  window.saveToDB({ coins: window.userCoins });
   
   renderDailyQuests();
 };

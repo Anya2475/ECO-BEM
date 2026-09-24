@@ -986,8 +986,11 @@
           <strong style="color:#fbbf24"><i class="fa-solid fa-medal"></i> برونزي</strong>
         </div>
 
-        <div style="margin-top:24px;border-top:1px solid var(--border);padding-top:16px;text-align:center">
-          <button class="btn btn-ghost" style="color:#ef4444;width:100%" onclick="handleLogout()">
+        <div style="margin-top:24px;border-top:1px solid var(--border);padding-top:16px;text-align:center;display:flex;flex-direction:column;gap:10px;">
+          <button class="btn btn-ghost" style="color:#ef4444;width:100%" onclick="resetAllStats()">
+            <i class="fa-solid fa-trash-can"></i> تصفير جميع النقاط
+          </button>
+          <button class="btn btn-ghost" style="color:var(--text-muted);width:100%" onclick="handleLogout()">
             <i class="fa-solid fa-right-from-bracket"></i> تسجيل الخروج
           </button>
         </div>
