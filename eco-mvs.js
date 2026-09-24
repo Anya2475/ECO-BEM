@@ -332,37 +332,79 @@
         }
     }
 
-    function renderLeaderboardTab(container) {
+    async function renderLeaderboardTab(container) {
         container.innerHTML = `
             <h3 class="eco-section-title" style="justify-content:center; font-size:24px; margin-bottom:30px;">🏆 أبطال الأسبوع</h3>
-            <div class="eco-leaderboard-item eco-rank-1">
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <div style="font-size:24px; font-weight:900; color:#fbbf24; width:30px;">1</div>
-                    <div class="eco-avatar" style="width:40px; height:40px; font-size:20px;">🥇</div>
-                    <strong style="color:#f8fafc;">ياسين م.</strong>
-                </div>
-                <div style="color:#fbbf24; font-weight:800;">1450 XP</div>
-            </div>
-            <div class="eco-leaderboard-item eco-rank-2">
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <div style="font-size:24px; font-weight:900; color:#94a3b8; width:30px;">2</div>
-                    <div class="eco-avatar" style="width:40px; height:40px; font-size:20px; background:#475569;">🥈</div>
-                    <strong style="color:#f8fafc;">سارة خ.</strong>
-                </div>
-                <div style="color:#94a3b8; font-weight:800;">1220 XP</div>
-            </div>
+            <div style="text-align:center;color:#64748b;padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i> جاري إحضار ترتيب الأبطال الحقيقي...</div>
+        `;
+
+        try {
+            const API_BASE = window.API_URL || '';
+            const res = await fetch(API_BASE + '/leaderboard');
+            if (!res.ok) throw new Error('Failed to fetch');
+            const data = await res.json();
             
-            <div style="text-align:center; color:#64748b; margin:20px 0;">• • •</div>
+            let html = `<h3 class="eco-section-title" style="justify-content:center; font-size:24px; margin-bottom:30px;">🏆 أبطال BEM</h3>`;
             
+            if (data.length === 0) {
+                html += `<div style="text-align:center;color:#94a3b8;">لا يوجد أبطال بعد. كن أنت الأول!</div>`;
+            }
+
+            // Top 5 real users
+            const topUsers = data.slice(0, 5);
+            let myRank = '--';
+            
+            topUsers.forEach((user, index) => {
+                const rank = index + 1;
+                let rankStyle = "color:#94a3b8;";
+                let avatar = "👨‍🎓";
+                let rowClass = "eco-leaderboard-item";
+                
+                if (rank === 1) { rankStyle = "color:#fbbf24;"; avatar = "🥇"; rowClass += " eco-rank-1"; }
+                if (rank === 2) { rankStyle = "color:#94a3b8;"; avatar = "🥈"; rowClass += " eco-rank-2"; }
+                if (rank === 3) { rankStyle = "color:#b45309;"; avatar = "🥉"; }
+
+                if (user.name === ecoCurrent.userName) myRank = rank;
+
+                let avatarHtml = `<div class="eco-avatar" style="width:40px; height:40px; font-size:20px;">${avatar}</div>`;
+                if (user.avatar_url && user.avatar_url.startsWith('data:image')) {
+                    avatarHtml = `<div class="eco-avatar" style="width:40px; height:40px; background-image:url(${user.avatar_url}); background-size:cover; border-radius:50%;"></div>`;
+                }
+
+                html += `
+                <div class="${rowClass}">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="font-size:24px; font-weight:900; ${rankStyle} width:30px;">${rank}</div>
+                        ${avatarHtml}
+                        <strong style="color:#f8fafc;">${user.name || 'مجهول'}</strong>
+                    </div>
+                    <div style="${rankStyle} font-weight:800;">${user.xp || 0} XP</div>
+                </div>
+                `;
+            });
+            
+            html += `<div style="text-align:center; color:#64748b; margin:20px 0;">• • •</div>`;
+            
+            // Highlight current user
+            html += `
             <div class="eco-leaderboard-item" style="border: 2px solid #38bdf8; background: rgba(56,189,248,0.1);">
                 <div style="display:flex; align-items:center; gap:12px;">
-                    <div style="font-size:18px; font-weight:900; color:#38bdf8; width:30px;">--</div>
+                    <div style="font-size:18px; font-weight:900; color:#38bdf8; width:30px;">${myRank}</div>
                     <div class="eco-avatar" style="width:40px; height:40px; font-size:20px;">أنت</div>
                     <strong style="color:#f8fafc;">${ecoCurrent.userName}</strong>
                 </div>
                 <div style="color:#38bdf8; font-weight:800;">${ecoCurrent.xp} XP</div>
             </div>
-        `;
+            `;
+            
+            container.innerHTML = html;
+        } catch (error) {
+            console.error('Leaderboard error:', error);
+            container.innerHTML = `
+                <h3 class="eco-section-title" style="justify-content:center; font-size:24px; margin-bottom:30px;">🏆 أبطال الأسبوع</h3>
+                <div style="text-align:center;color:#ef4444;padding:20px;">حدث خطأ أثناء جلب القائمة.</div>
+            `;
+        }
     }
 
     function renderProfileTab(container) {
