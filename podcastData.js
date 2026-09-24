@@ -31,5 +31,13 @@ const podcastData = [
     audioSrc: './pod_motivation.mp3?v=2',
     duration: '00:33',
     coverImage: 'https://images.unsplash.com/photo-1499209974431-9dddcece7f88?auto=format&fit=crop&q=80&w=200'
+  },
+  {
+    id: 5,
+    title: 'جغرافيا: موقع الجزائر وأهميته',
+    category: 'الجغرافيا',
+    audioSrc: './pod_geo_algeria_location.mp3?v=1',
+    duration: '00:46',
+    coverImage: 'https://images.unsplash.com/photo-1544413660-299165566b1d?auto=format&fit=crop&q=80&w=200'
   }
 ];
