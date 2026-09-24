@@ -1076,18 +1076,21 @@ async function exportBackup() {
 }
 
 /* ═══ Analytics ═══ */
-function renderAnalytics() {
+async function renderAnalytics() {
   const box = document.getElementById('analytics-content');
   if (!box) return;
   
+  box.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa-solid fa-spinner fa-spin fa-2x" style="color:#8dc63f;"></i></div>';
+
   let stats = [];
   try {
       stats = JSON.parse(localStorage.getItem('eco_bem_stats_v2')) || [];
   } catch(e) {}
   
   const coins = parseInt(localStorage.getItem('eco_user_coins_v2')) || 0;
+  const dbData = await EcoDB.getDashboard();
   
-  if (stats.length === 0 && coins === 0) {
+  if (stats.length === 0 && coins === 0 && dbData.xp === 0) {
       box.innerHTML = `
         <div class="card" style="text-align:center; padding:40px;">
           <div class="section-label" style="text-align:center;">📊 التحليلات البيانية</div>
@@ -1099,7 +1102,7 @@ function renderAnalytics() {
       return;
   }
   
-  let historyHtml = stats.map(s => `
+  let historyHtml = stats.slice(0, 5).map(s => `
     <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; background:rgba(255,255,255,0.05); margin-bottom:8px; border-radius:10px;">
         <div>
             <div style="font-weight:bold; color:white;">${s.reason || 'نشاط'}</div>
@@ -1110,15 +1113,48 @@ function renderAnalytics() {
   `).join('');
   
   box.innerHTML = `
-    <div class="card" style="margin-bottom:15px; background:linear-gradient(135deg, #2b5876, #4e4376);">
-      <h3 style="color:white; margin-bottom:10px;">إجمالي النقاط المكتسبة</h3>
-      <div style="font-size:3rem; font-weight:900; color:#fbbf24;">${coins} 🪙</div>
-      <div style="color:rgba(255,255,255,0.7); font-size:0.9rem;">استمر في المراجعة لجمع المزيد!</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:15px;">
+        <div class="card" style="background:linear-gradient(135deg, #2b5876, #4e4376); text-align:center; padding:15px; border:none;">
+          <h3 style="color:white; margin-bottom:10px; font-size:0.9rem;">إجمالي العملات</h3>
+          <div style="font-size:2rem; font-weight:900; color:#fbbf24;">${coins} <i class="fa-solid fa-coins"></i></div>
+        </div>
+        
+        <div class="card" style="background:linear-gradient(135deg, #11998e, #38ef7d); text-align:center; padding:15px; border:none;">
+          <h3 style="color:white; margin-bottom:10px; font-size:0.9rem;">شعلة الاستمرارية</h3>
+          <div style="font-size:2rem; font-weight:900; color:#fff;">${dbData.streak?.current || 0} <i class="fa-solid fa-fire" style="color:#f97316;"></i></div>
+          <div style="font-size:0.75rem; color:rgba(255,255,255,0.8);">أفضل شعلة: ${dbData.streak?.best || 0}</div>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-bottom:15px; border-left:4px solid #8b5cf6;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+            <strong style="color:var(--text-primary);">المستوى ${dbData.level}</strong>
+            <span style="color:var(--text-muted); font-size:0.8rem;">${dbData.xp} XP</span>
+        </div>
+        <div style="width:100%; height:8px; background:var(--bg); border-radius:4px; overflow:hidden;">
+            <div style="height:100%; width:${dbData.levelProgress}%; background:#8b5cf6; border-radius:4px;"></div>
+        </div>
+        <div style="text-align:left; font-size:0.7rem; color:var(--text-muted); margin-top:4px;">
+            متبقي ${dbData.nextLevelXP - dbData.xp} XP للمستوى التالي
+        </div>
+    </div>
+    
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:15px;">
+        <div class="card" style="text-align:center; padding:15px;">
+            <i class="fa-solid fa-list-check" style="font-size:1.5rem; color:#3b82f6; margin-bottom:8px;"></i>
+            <div style="font-size:1.2rem; font-weight:bold; color:var(--text-primary);">${dbData.totalAttempts}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">اختبارات منجزة</div>
+        </div>
+        <div class="card" style="text-align:center; padding:15px;">
+            <i class="fa-solid fa-clock" style="font-size:1.5rem; color:#ec4899; margin-bottom:8px;"></i>
+            <div style="font-size:1.2rem; font-weight:bold; color:var(--text-primary);">${dbData.totalStudyHours}h</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">وقت الدراسة</div>
+        </div>
     </div>
     
     <div class="card">
-      <div class="section-label" style="margin-bottom:15px;">⏱️ أحدث النشاطات</div>
-      ${historyHtml || '<p style="color:var(--text-muted);">لا توجد نشاطات مسجلة بعد.</p>'}
+      <div class="section-label" style="margin-bottom:15px;">⏱️ أحدث سجلات العملات</div>
+      ${historyHtml || '<p style="color:var(--text-muted); font-size:0.9rem;">لا توجد نشاطات مسجلة بعد.</p>'}
     </div>
   `;
 }
