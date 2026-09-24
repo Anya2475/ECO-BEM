@@ -81,7 +81,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
         outerLoop: for (const currentKey of apiKeys) {
             const genAI = new GoogleGenerativeAI(currentKey);
             // List of valid models to try
-            const modelsToTry = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-flash-latest"];
+            const modelsToTry = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
             
             for (const modelName of modelsToTry) {
                 try {
