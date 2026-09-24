@@ -159,8 +159,8 @@ window.equipItem = function(itemId) {
 };
 
 // Hook into overlay opening
-const originalOpenOverlay = window.openOverlay;
+const storeOriginalOpenOverlay = window.openOverlay;
 window.openOverlay = function(id) {
     if (id === 'store') initStore();
-    if (originalOpenOverlay) originalOpenOverlay(id);
+    if (storeOriginalOpenOverlay) storeOriginalOpenOverlay(id);
 };
