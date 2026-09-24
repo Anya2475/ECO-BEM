@@ -136,7 +136,15 @@ const EcoDB = {
     return s.filter(x => x.type === 'pomodoro' || x.type === 'lesson').reduce((sum, x) => sum + (x.duration || 0), 0);
   },
   async getStat(key) { const r = await dbGet('stats', key); return r ? r.value : null; },
-  async setStat(key, value) { return dbPut('stats', { key, value, updatedAt: new Date().toISOString() }); },
+  async setStat(key, value) { 
+    const res = await dbPut('stats', { key, value, updatedAt: new Date().toISOString() }); 
+    if (typeof window.saveToDB === 'function') {
+      if (key === 'xp') window.saveToDB({ xp: value });
+      if (key === 'streak') window.saveToDB({ streak: value });
+      if (key === 'coins') window.saveToDB({ coins: value });
+    }
+    return res;
+  },
   async addXP(amount) {
     const cur = (await this.getStat('xp')) || 0;
     const nxt = cur + amount;

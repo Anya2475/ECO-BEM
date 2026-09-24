@@ -37,7 +37,14 @@
         activeTab: 'home', soundEnabled: true, userName: "بطل البيام" 
     };
 
-    function saveEcoEngineState() { try { localStorage.setItem(ECO_STORAGE_KEY, JSON.stringify(ecoCurrent)); } catch (e) {} }
+    function saveEcoEngineState() { 
+        try { 
+            localStorage.setItem(ECO_STORAGE_KEY, JSON.stringify(ecoCurrent)); 
+            if (typeof window.saveToDB === 'function') {
+                window.saveToDB({ xp: ecoCurrent.xp });
+            }
+        } catch (e) {} 
+    }
     function loadEcoEngineState() {
         try { 
             var saved = localStorage.getItem(ECO_STORAGE_KEY); 

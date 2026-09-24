@@ -211,9 +211,23 @@ window.syncUserData = async function() {
       setUserName(user.name, true);
       if (user.avatar_url) localStorage.setItem('eco_user_avatar', user.avatar_url);
       if (user.dream_goal) localStorage.setItem('eco_user_dream', user.dream_goal);
-      if (user.xp) window.addXP(0, true); // We'll need a better way to set absolute XP, but for now it's ok
-      // For now, let's just update the UI directly if we have to
-      document.getElementById('acc-xp').textContent = user.xp;
+      // Force overwrite local XP, Coins, Streak with DB truth
+      if (typeof EcoDB !== 'undefined' && EcoDB.setStat) {
+        EcoDB.setStat('xp', user.xp || 0);
+        EcoDB.setStat('streak', user.streak || 0);
+      }
+      
+      // Force overwrite eco-mvs.js Smart Teacher XP
+      try {
+        let ecoStr = localStorage.getItem('eco_engine_state');
+        if (ecoStr) {
+            let ecoObj = JSON.parse(ecoStr);
+            ecoObj.xp = user.xp || 0;
+            localStorage.setItem('eco_engine_state', JSON.stringify(ecoObj));
+        }
+      } catch(e) {}
+
+      document.getElementById('acc-xp').textContent = user.xp || 0;
       
       // Coins Logic
       window.userCoins = user.coins || 0;
