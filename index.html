@@ -170,12 +170,12 @@
       <button class="icon-btn" onclick="toggleDrawer(true)" aria-label="القائمة">
         <i class="fa-solid fa-bars"></i>
       </button>
-      <button class="pill" onclick="openOverlay('account')" style="gap:8px; margin-right:12px;">
-        <div style="display:flex;align-items:center;gap:8px;color:#fbbf24;" title="رصيد العملات الذهبية">
-          <i class="fa-solid fa-coins" style="font-size:1.2rem;"></i><span style="font-weight:900;font-size:1.3rem;" id="ui-coins">0</span>
+      <button class="pill tb-coins-btn" onclick="openOverlay('account')">
+        <div style="display:flex;align-items:center;gap:6px;color:#fbbf24;" title="رصيد العملات الذهبية">
+          <i class="fa-solid fa-coins"></i><span style="font-weight:900;font-size:1.1rem;" id="ui-coins">0</span>
         </div>
       </button>
-      <button class="icon-btn" onclick="openOverlay('store')" aria-label="متجر الأبطال" style="color:#a4d466; margin-right:8px; width:45px; height:45px;">
+      <button class="icon-btn store-btn" onclick="openOverlay('store')" aria-label="متجر الأبطال" style="color:#a4d466;">
         <i class="fa-solid fa-cart-shopping"></i>
       </button>
     </div>
@@ -183,11 +183,11 @@
       <img src="./logo.png" alt="ECO-BEM" onerror="this.outerHTML='<span style=\'font-family:var(--font-serif);font-size:1.6rem;font-weight:900;color:#a4d466\'>ECO-BEM</span>'">
     </div>
     <div class="tb-left">
-      <button class="pill" onclick="openOverlay('account')" style="gap:8px;">
-        <div style="display:flex;align-items:center;gap:8px;color:#f97316;" title="شعلة الاستمرارية">
-          <i class="fa-solid fa-fire" style="font-size:1.2rem;"></i><span style="font-weight:900;font-size:1.3rem;" id="ui-streak">0</span>
+      <button class="pill tb-streak-btn" onclick="openOverlay('account')">
+        <div style="display:flex;align-items:center;gap:6px;color:#f97316;" title="شعلة الاستمرارية">
+          <i class="fa-solid fa-fire"></i><span style="font-weight:900;font-size:1.1rem;" id="ui-streak">0</span>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;border-right:2px solid rgba(141,198,63,.3);padding-right:14px;">
+        <div class="tb-profile-divider">
           <span class="avatar-mini" id="ui-avatar">س</span><span class="hide-m" style="font-size:1.1rem; font-weight:700;">حسابي</span>
         </div>
       </button>
