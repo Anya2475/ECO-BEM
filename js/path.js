@@ -195,7 +195,7 @@ function renderPathMap() {
                 <div class="${nodeClass}" style="background-color: ${nodeColor}; box-shadow: 0 8px 0 ${shadeColor(nodeColor, -30)};" onclick="handleNodeClick('${currentPathSubject}', ${node.id}, ${isLocked})">
                     ${iconHtml}
                 </div>
-                <div class="path-label" style="color: ${isLocked ? '#475569' : '#e2e8f0'}">${node.title}</div>
+                <div class="path-label" style="color: ${isLocked ? '#475569' : '#e2e8f0'}; ${offset < 0 ? 'left: 90px; right: auto; text-align: left;' : 'right: 90px; left: auto; text-align: right;'}">${node.title}</div>
             </div>
         `;
         
