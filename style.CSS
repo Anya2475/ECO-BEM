@@ -149,10 +149,10 @@ body.light .topbar{background:rgba(245,253,245,.9); border-bottom:1px solid rgba
 .tb-right{display:flex;align-items:center;gap:8px;justify-self:start;}
 .tb-left{display:flex;align-items:center;gap:8px;justify-self:end;}
 
-.tb-coins-btn { display: none; }
-.store-btn { display: none; }
+.tb-coins-btn { display: none !important; }
+.store-btn { display: none !important; }
 .tb-streak-btn { gap: 6px; }
-.tb-profile-divider { display: none; }
+.tb-profile-divider { display: none !important; }
 
 .brand{
   display:flex;align-items:center;justify-content:center;
