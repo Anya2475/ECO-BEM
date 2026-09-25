@@ -198,15 +198,16 @@ body.light .brand img{mix-blend-mode:multiply;}
 }
 @media(max-width:640px){
   .topbar { display: flex; justify-content: space-between; padding: 10px 8px; gap: 4px; }
-  .brand { display: none; }
+  .brand { display: flex; flex: 1; justify-content: center; }
   .hide-m{display:none;}
-  .tb-coins-btn { margin-right: 4px; padding: 6px 10px; }
-  .store-btn { margin-right: 4px; width: 38px; height: 38px; }
-  .tb-streak-btn { gap: 4px; padding: 6px 10px; }
-  .tb-profile-divider { gap: 6px; padding-right: 8px; }
-  .tb-right, .tb-left { gap: 4px; }
+  .tb-coins-btn { display: none !important; }
+  .store-btn { display: none !important; }
+  .tb-profile-divider { display: none !important; }
+  .tb-streak-btn { gap: 6px; padding: 6px 12px; }
+  .tb-streak-btn > div:first-child { border-left: none !important; padding-left: 0 !important; }
+  .tb-right { justify-content: flex-start; flex: 1; }
+  .tb-left { justify-content: flex-end; flex: 1; }
   .icon-btn { width: 38px; height: 38px; }
-  .avatar-mini { width: 30px; height: 30px; font-size: 0.9rem; }
 }
 
 /* ═══ MAIN ═══ */
