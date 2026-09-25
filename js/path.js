@@ -146,7 +146,7 @@ function showPremiumModal() {
                 <div style="font-size: 4rem; margin-bottom: 15px;">👑</div>
                 <h2 style="color: gold; margin-bottom: 10px;">باقة التميز (Premium)</h2>
                 <p style="color: var(--text-muted); margin-bottom: 25px; line-height: 1.6;">هذه المادة ضمن الخطة المدفوعة. اشترك الآن لتحصل على جميع المواد، ميزات إضافية، وتجربة خالية من الإعلانات!</p>
-                <button onclick="document.getElementById('premium-modal').style.display='none'" style="background: gold; color: #000; font-weight: bold; border: none; padding: 12px 25px; border-radius: 12px; font-size: 1.1rem; cursor: pointer; width: 100%; margin-bottom: 10px;">ترقية الحساب الآن</button>
+                <button onclick="window.open('https://wa.me/213697454244?text=' + encodeURIComponent('مرحباً، أريد الاشتراك في الخطة المدفوعة (Premium) لمنصة ECO-BEM.'), '_blank'); document.getElementById('premium-modal').style.display='none'" style="background: gold; color: #000; font-weight: bold; border: none; padding: 12px 25px; border-radius: 12px; font-size: 1.1rem; cursor: pointer; width: 100%; margin-bottom: 10px;"><i class="fa-brands fa-whatsapp" style="font-size: 1.2rem; vertical-align: middle; margin-left: 8px;"></i>ترقية الحساب الآن</button>
                 <button onclick="document.getElementById('premium-modal').style.display='none'" style="background: transparent; color: var(--text-muted); border: 1px solid var(--border); padding: 10px 20px; border-radius: 12px; cursor: pointer; width: 100%;">العودة</button>
             </div>
             <style>@keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }</style>
