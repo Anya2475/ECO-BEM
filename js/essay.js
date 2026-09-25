@@ -31,6 +31,11 @@ window.updateEssayTopics = function() {
         topicSelect.appendChild(option);
     });
     
+    const customOption = document.createElement('option');
+    customOption.value = 'custom';
+    customOption.textContent = '✏️ موضوع مخصص (كتابة سند من عندك)';
+    topicSelect.appendChild(customOption);
+    
     window.updateEssayPrompt();
 };
 
@@ -39,7 +44,9 @@ window.updateEssayPrompt = function() {
     const topicIndex = document.getElementById('essay-topic').value;
     const promptText = document.getElementById('essay-prompt-text');
     
-    if (essayTopics[subject] && essayTopics[subject][topicIndex]) {
+    if (topicIndex === 'custom') {
+        promptText.innerHTML = '<textarea id="essay-custom-prompt" placeholder="اكتب السند والتعليمة هنا (مثلاً من فرض أو اختبار)..." style="width: 100%; min-height: 100px; padding: 10px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--bg); color: var(--text); resize: vertical; font-family: inherit; font-size: 0.9rem;"></textarea>';
+    } else if (essayTopics[subject] && essayTopics[subject][topicIndex]) {
         promptText.textContent = essayTopics[subject][topicIndex].prompt;
     }
 };
@@ -54,11 +61,30 @@ window.updateEssayWordCount = function() {
 window.startEssayWriting = function() {
     const subject = document.getElementById('essay-subject').value;
     const topicIndex = document.getElementById('essay-topic').value;
-    const topic = essayTopics[subject][topicIndex];
+    
+    let topicTitle = '';
+    let topicPrompt = '';
+
+    if (topicIndex === 'custom') {
+        const customPromptArea = document.getElementById('essay-custom-prompt');
+        if (!customPromptArea || customPromptArea.value.trim() === '') {
+            toast('يرجى كتابة السند والتعليمة أولاً.', 'err');
+            return;
+        }
+        topicTitle = 'موضوع مخصص';
+        topicPrompt = customPromptArea.value.trim();
+        // Store it temporarily so we can access it during grading
+        window.currentCustomPrompt = topicPrompt;
+    } else {
+        const topic = essayTopics[subject][topicIndex];
+        topicTitle = topic.title;
+        topicPrompt = topic.prompt;
+        window.currentCustomPrompt = null;
+    }
     
     document.getElementById('essay-setup').style.display = 'none';
     document.getElementById('essay-writing').style.display = 'flex';
-    document.getElementById('essay-writing-topic').textContent = topic.title;
+    document.getElementById('essay-writing-topic').textContent = topicTitle;
     document.getElementById('essay-textarea').value = '';
     document.getElementById('essay-textarea').focus();
     window.updateEssayWordCount();
@@ -79,7 +105,14 @@ window.submitEssayForGrading = async function() {
     
     const subject = document.getElementById('essay-subject').value;
     const topicIndex = document.getElementById('essay-topic').value;
-    const topic = essayTopics[subject][topicIndex];
+    
+    let promptForAI = '';
+    if (topicIndex === 'custom') {
+        promptForAI = window.currentCustomPrompt || 'موضوع مخصص';
+    } else {
+        const topic = essayTopics[subject][topicIndex];
+        promptForAI = topic.prompt;
+    }
     
     // Switch UI to loading state
     document.getElementById('essay-writing').style.display = 'none';
@@ -97,7 +130,7 @@ window.submitEssayForGrading = async function() {
     const systemPrompt = `
 You are an expert Algerian Middle School (BEM) teacher grading a student's essay.
 Language: ${subject === 'ar' ? 'Arabic' : (subject === 'fr' ? 'French' : 'English')}.
-Topic/Prompt: "${topic.prompt}".
+The topic/prompt provided by the student or teacher is: "${promptForAI}".
 
 You MUST return your grading strictly as a JSON object with the following structure (do not include markdown block \`\`\`json or anything else, just the raw JSON object).
 CRITICAL: ALL text inside the JSON (except the keys) MUST BE IN ARABIC so the student understands the feedback, even if they wrote in French or English.
