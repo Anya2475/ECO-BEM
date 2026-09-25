@@ -218,6 +218,22 @@
         </div>
       </div>
 
+      <div class="section-label">تحليل الأداء والمتابعة</div>
+      <div class="card" onclick="openOverlay('analytics')" style="cursor:pointer; margin-bottom:24px; border:1px solid rgba(56,189,248,.3); background:linear-gradient(to bottom, rgba(56,189,248,.05), transparent)">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex; gap:12px; align-items:center;">
+            <div style="width:45px; height:45px; border-radius:12px; background:rgba(56,189,248,0.15); color:#38bdf8; display:flex; justify-content:center; align-items:center; font-size:1.5rem;">
+              <i class="fa-solid fa-chart-line"></i>
+            </div>
+            <div>
+              <h3 style="font-size:1.1rem; margin:0; color:#f8fafc;">الإحصائيات المتقدمة</h3>
+              <p style="font-size:0.85rem; margin:4px 0 0; color:var(--text-muted);">راقب تطور مستواك بدقة واكتشف نقاط ضعفك</p>
+            </div>
+          </div>
+          <i class="fa-solid fa-chevron-left" style="color:var(--text-muted)"></i>
+        </div>
+      </div>
+
       <div class="section-label">رفيقك النفسي</div>
       <div class="card mint">
         <div class="card-head">
@@ -963,6 +979,23 @@
   </div>
 </div>
 
+<!-- Analytics Overlay -->
+<div class="overlay" id="ov-analytics">
+  <div class="overlay-head">
+    <button class="back" onclick="closeOverlay('analytics')">
+      <i class="fa-solid fa-arrow-right"></i>
+    </button>
+    <h2><i class="fa-solid fa-chart-line"></i> الإحصائيات المتقدمة</h2>
+  </div>
+  <div class="overlay-body" style="padding-bottom:100px;" id="analytics-container">
+    <!-- Analytics will be injected here via JS -->
+    <div style="text-align:center;padding:40px;color:var(--text-muted)">
+        <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
+        <p style="margin-top:15px;">جاري تجهيز التحليلات الذكية...</p>
+    </div>
+  </div>
+</div>
+
 <!-- Account -->
 <div class="overlay" id="ov-account">
   <div class="overlay-head">
@@ -1068,6 +1101,7 @@
   <script src="./js/zen.js?v=1"></script>
   <script src="./js/annals.js?v=1"></script>
   <script src="./js/store.js?v=1"></script>
+  <script src="./js/analytics.js?v=1"></script>
   <script src="./js/main.js?v=1"></script>
 <script>
   if ('serviceWorker' in navigator) {
