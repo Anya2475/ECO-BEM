@@ -278,7 +278,7 @@
       </div>
 
       <div class="section-label">واحة التدريب</div>
-      <div class="grid-2">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
         <div class="tile" onclick="openOverlay('flash')">
           <div class="tile-icon" style="background:rgba(141,198,63,.15);color:#a4d466">
             <i class="fa-solid fa-clone"></i>
@@ -293,12 +293,12 @@
           <h4>اختبارات قصيرة</h4>
           <p>أسئلة بمستوى امتحانات BEM الرسمية.</p>
         </div>
-        <div class="tile" onclick="openOverlay('essay')" style="grid-column: 1 / -1;">
+        <div class="tile" onclick="openOverlay('essay')">
           <div class="tile-icon" style="background:rgba(56,189,248,.15);color:#38bdf8">
             <i class="fa-solid fa-pen-nib"></i>
           </div>
-          <h4>المصحح الذكي للوضعيات</h4>
-          <p>أداة ذكاء اصطناعي تصحح وضعياتك الإدماجية وتمنحك تقييماً دقيقاً.</p>
+          <h4>المصحح الذكي</h4>
+          <p>أداة ذكاء اصطناعي تصحح وضعياتك وتمنحك تقييماً دقيقاً.</p>
         </div>
       </div>
     </section>
@@ -1008,7 +1008,7 @@
     <div id="essay-setup" style="display: flex; flex-direction: column; gap: 15px; padding: 15px;">
       <div style="background: var(--surface); padding: 15px; border-radius: var(--r-md); border: 1px solid var(--border);">
         <h3 style="margin-bottom: 10px; font-size: 1rem;">1. اختر المادة</h3>
-        <select id="essay-subject" onchange="window.updateEssayTopics()" style="width: 100%; padding: 12px; border-radius: var(--r-sm); background: var(--bg); color: var(--text); border: 1px solid var(--border);">
+        <select id="essay-subject" onchange="window.updateEssayTopics()" style="position: relative; z-index: 9999; width: 100%; padding: 12px; border-radius: var(--r-sm); background: var(--bg); color: var(--text); border: 1px solid var(--border);">
           <option value="ar">اللغة العربية</option>
           <option value="fr">اللغة الفرنسية (Français)</option>
           <option value="en">اللغة الإنجليزية (English)</option>
@@ -1017,10 +1017,10 @@
       
       <div style="background: var(--surface); padding: 15px; border-radius: var(--r-md); border: 1px solid var(--border);">
         <h3 style="margin-bottom: 10px; font-size: 1rem;">2. اختر الموضوع (السند والتعليمة)</h3>
-        <select id="essay-topic" onchange="window.updateEssayPrompt()" style="width: 100%; padding: 12px; border-radius: var(--r-sm); background: var(--bg); color: var(--text); border: 1px solid var(--border);">
+        <select id="essay-topic" onchange="window.updateEssayPrompt()" style="position: relative; z-index: 9998; width: 100%; padding: 12px; border-radius: var(--r-sm); background: var(--bg); color: var(--text); border: 1px solid var(--border);">
           <!-- Populated by JS -->
         </select>
-        <div id="essay-prompt-text" style="margin-top: 15px; padding: 15px; background: rgba(56,189,248,0.1); border-right: 4px solid #38bdf8; border-radius: var(--r-sm); font-size: 0.9rem; line-height: 1.6; color: var(--text-muted);">
+        <div id="essay-prompt-text" style="position: relative; z-index: 1; margin-top: 15px; padding: 15px; background: rgba(56,189,248,0.1); border-right: 4px solid #38bdf8; border-radius: var(--r-sm); font-size: 0.9rem; line-height: 1.6; color: var(--text-muted);">
           <!-- Populated by JS -->
         </div>
       </div>
