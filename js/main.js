@@ -19,8 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadExam();
   if (typeof window.loadAvatar === 'function') window.loadAvatar();
   if (typeof window.loadDream === 'function') window.loadDream();
-
-
+  if (typeof window.initPathTab === 'function') window.initPathTab();
 });
 function saveAttempt(year, subj) {
   const ta = document.getElementById(`attempt-${year}-${subj}`);

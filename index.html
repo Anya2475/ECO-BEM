@@ -198,8 +198,26 @@
 
   <main class="main">
 
+    <!-- ═══════════════ PATH TAB ═══════════════ -->
+    <section class="tab on" id="tab-path">
+      <div class="hero" style="padding-bottom: 20px;">
+        <div class="hero-kicker">مسار التعلم</div>
+        <h1 style="font-size: 2.2rem;">اختر <em>محطتك</em> التالية</h1>
+      </div>
+      
+      <!-- Subject Switcher -->
+      <div id="path-subjects" style="display:flex; gap:10px; overflow-x:auto; padding-bottom:10px; margin-bottom: 20px;">
+        <!-- Injected via JS -->
+      </div>
+      
+      <!-- Winding Path Map -->
+      <div id="path-map-container">
+        <!-- Injected via JS -->
+      </div>
+    </section>
+
     <!-- ═══════════════ HOME TAB ═══════════════ -->
-    <section class="tab on" id="tab-home">
+    <section class="tab" id="tab-home">
       <div class="hero">
         <div class="hero-kicker">منصة أكاديمية رسمية</div>
             <p>بيئة تعليمية متكاملة لشهادة التعليم المتوسط.</p>  
@@ -579,8 +597,8 @@
 
   <!-- ═══════════════ BOTTOM NAV ═══════════════ -->
   <nav class="nav">
-    <button class="nav-item on" id="nav-home" onclick="go('tab-home','nav-home')">
-      <i class="fa-solid fa-house"></i><span>الرئيسية</span>
+    <button class="nav-item on" id="nav-path" onclick="go('tab-path','nav-path'); if(window.initPathTab) initPathTab();">
+      <i class="fa-solid fa-route"></i><span>المسار</span>
     </button>
     <button class="nav-item" id="nav-stats" onclick="go('tab-stats','nav-stats')">
       <i class="fa-solid fa-chart-pie"></i><span>إحصائيات</span>
@@ -590,8 +608,8 @@
         <i class="fa-solid fa-robot"></i>
       </button>
     </div>
-    <button class="nav-item" id="nav-subs" onclick="go('tab-subs','nav-subs')">
-      <i class="fa-solid fa-cubes-stacked"></i><span>المواد</span>
+    <button class="nav-item" id="nav-home" onclick="go('tab-home','nav-home')">
+      <i class="fa-solid fa-bolt"></i><span>مهامي</span>
     </button>
     <button class="nav-item" id="nav-archive" onclick="go('tab-archive','nav-archive')">
       <i class="fa-solid fa-building-columns"></i><span>بنك BEM</span>
@@ -1102,6 +1120,7 @@
   <script src="./js/annals.js?v=1"></script>
   <script src="./js/store.js?v=1"></script>
   <script src="./js/analytics.js?v=1"></script>
+  <script src="./js/path.js?v=1"></script>
   <script src="./js/main.js?v=1"></script>
 <script>
   if ('serviceWorker' in navigator) {
