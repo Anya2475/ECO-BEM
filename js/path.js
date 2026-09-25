@@ -2,7 +2,13 @@
 const ECO_PATH_SUBJECTS = [
     { id: 'math', name: 'الرياضيات', icon: 'fa-calculator', color: '#38bdf8' },
     { id: 'arabic', name: 'اللغة العربية', icon: 'fa-feather', color: '#a4d466' },
-    { id: 'science', name: 'العلوم الطبيعية', icon: 'fa-flask', color: '#fbbf24' }
+    { id: 'science', name: 'العلوم الطبيعية', icon: 'fa-flask', color: '#fbbf24' },
+    { id: 'physics', name: 'العلوم الفيزيائية', icon: 'fa-atom', color: '#818cf8' },
+    { id: 'islamic', name: 'التربية الإسلامية', icon: 'fa-moon', color: '#34d399' },
+    { id: 'civic', name: 'التربية المدنية', icon: 'fa-landmark', color: '#f472b6' },
+    { id: 'hisgeo', name: 'التاريخ والجغرافيا', icon: 'fa-globe', color: '#fdba74' },
+    { id: 'french', name: 'اللغة الفرنسية', icon: 'fa-language', color: '#c084fc' },
+    { id: 'english', name: 'اللغة الإنجليزية', icon: 'fa-book', color: '#fca5a5' }
 ];
 
 const ECO_PATH_NODES = {
@@ -27,6 +33,45 @@ const ECO_PATH_NODES = {
         { id: 3, title: 'نقل المغذيات', type: 'quiz' },
         { id: 4, title: 'التنفس', type: 'lesson' },
         { id: 5, title: 'مراجعة المقطع 1', type: 'chest' }
+    ],
+    'physics': [
+        { id: 1, title: 'الشحنة الكهربائية', type: 'lesson' },
+        { id: 2, title: 'النموذج المبسط للذرة', type: 'practice' },
+        { id: 3, title: 'التيار المتناوب', type: 'quiz' },
+        { id: 4, title: 'الأمن الكهربائي', type: 'lesson' },
+        { id: 5, title: 'اختبار الفصل الأول', type: 'chest' }
+    ],
+    'islamic': [
+        { id: 1, title: 'سورة النبأ', type: 'lesson' },
+        { id: 2, title: 'الإيمان باليوم الآخر', type: 'practice' },
+        { id: 3, title: 'الحج', type: 'quiz' },
+        { id: 4, title: 'مواقف من السيرة', type: 'lesson' },
+        { id: 5, title: 'اختبار الوحدة', type: 'chest' }
+    ],
+    'civic': [
+        { id: 1, title: 'الصلح والوساطة', type: 'lesson' },
+        { id: 2, title: 'المؤسسات القضائية', type: 'practice' },
+        { id: 3, title: 'الدستور', type: 'quiz' },
+        { id: 4, title: 'الهوية الوطنية', type: 'chest' }
+    ],
+    'hisgeo': [
+        { id: 1, title: 'الوثيقة التاريخية', type: 'lesson' },
+        { id: 2, title: 'الاحتلال الفرنسي', type: 'practice' },
+        { id: 3, title: 'تضاريس الجزائر', type: 'lesson' },
+        { id: 4, title: 'المناخ', type: 'quiz' },
+        { id: 5, title: 'اختبار المقطع', type: 'chest' }
+    ],
+    'french': [
+        { id: 1, title: 'Le texte argumentatif', type: 'lesson' },
+        { id: 2, title: 'Le vocabulaire', type: 'practice' },
+        { id: 3, title: 'La grammaire', type: 'quiz' },
+        { id: 4, title: 'Projet 1', type: 'chest' }
+    ],
+    'english': [
+        { id: 1, title: 'Landmarks', type: 'lesson' },
+        { id: 2, title: 'Outstanding Figures', type: 'practice' },
+        { id: 3, title: 'Passive Voice', type: 'quiz' },
+        { id: 4, title: 'Unit 1 Test', type: 'chest' }
     ]
 };
 
