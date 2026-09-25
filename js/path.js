@@ -1,14 +1,14 @@
 // Duolingo-style Learning Path System
 const ECO_PATH_SUBJECTS = [
-    { id: 'math', name: 'الرياضيات', icon: 'fa-calculator', color: '#38bdf8' },
-    { id: 'arabic', name: 'اللغة العربية', icon: 'fa-feather', color: '#a4d466' },
-    { id: 'science', name: 'العلوم الطبيعية', icon: 'fa-flask', color: '#fbbf24' },
-    { id: 'physics', name: 'العلوم الفيزيائية', icon: 'fa-atom', color: '#818cf8' },
-    { id: 'islamic', name: 'التربية الإسلامية', icon: 'fa-moon', color: '#34d399' },
-    { id: 'civic', name: 'التربية المدنية', icon: 'fa-landmark', color: '#f472b6' },
-    { id: 'hisgeo', name: 'التاريخ والجغرافيا', icon: 'fa-globe', color: '#fdba74' },
-    { id: 'french', name: 'اللغة الفرنسية', icon: 'fa-language', color: '#c084fc' },
-    { id: 'english', name: 'اللغة الإنجليزية', icon: 'fa-book', color: '#fca5a5' }
+    { id: 'math', name: 'الرياضيات', icon: 'fa-calculator', color: '#38bdf8', isFree: true },
+    { id: 'arabic', name: 'اللغة العربية', icon: 'fa-feather', color: '#a4d466', isFree: true },
+    { id: 'science', name: 'العلوم الطبيعية', icon: 'fa-flask', color: '#fbbf24', isFree: false },
+    { id: 'physics', name: 'العلوم الفيزيائية', icon: 'fa-atom', color: '#818cf8', isFree: false },
+    { id: 'islamic', name: 'التربية الإسلامية', icon: 'fa-moon', color: '#34d399', isFree: false },
+    { id: 'civic', name: 'التربية المدنية', icon: 'fa-landmark', color: '#f472b6', isFree: false },
+    { id: 'hisgeo', name: 'التاريخ والجغرافيا', icon: 'fa-globe', color: '#fdba74', isFree: false },
+    { id: 'french', name: 'اللغة الفرنسية', icon: 'fa-language', color: '#c084fc', isFree: false },
+    { id: 'english', name: 'اللغة الإنجليزية', icon: 'fa-book', color: '#fca5a5', isFree: false }
 ];
 
 const ECO_PATH_NODES = {
@@ -106,9 +106,10 @@ function renderPathSelector() {
     let html = '';
     ECO_PATH_SUBJECTS.forEach(sub => {
         const isActive = sub.id === currentPathSubject;
+        const crownHtml = !sub.isFree ? `<i class="fa-solid fa-crown" style="color: gold; margin-left: 5px; font-size: 0.8rem;"></i>` : '';
         html += `
             <button class="path-sub-btn ${isActive ? 'active' : ''}" style="${isActive ? `background:${sub.color}20; color:${sub.color}; border-color:${sub.color};` : ''}" onclick="switchPathSubject('${sub.id}')">
-                <i class="fa-solid ${sub.icon}"></i> ${sub.name}
+                <i class="fa-solid ${sub.icon}"></i> ${sub.name} ${crownHtml}
             </button>
         `;
     });
@@ -116,9 +117,43 @@ function renderPathSelector() {
 }
 
 function switchPathSubject(id) {
+    const subjData = ECO_PATH_SUBJECTS.find(s => s.id === id);
+    const isPremiumUser = localStorage.getItem('eco_premium_user') === 'true';
+    
+    if (!subjData.isFree && !isPremiumUser) {
+        if(typeof playSound === 'function') playSound('err');
+        showPremiumModal();
+        return;
+    }
+    
     currentPathSubject = id;
     renderPathSelector();
     renderPathMap();
+}
+
+function showPremiumModal() {
+    let modal = document.getElementById('premium-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'premium-modal';
+        modal.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.8); z-index: 999999; display: flex; 
+            align-items: center; justify-content: center; backdrop-filter: blur(5px);
+        `;
+        modal.innerHTML = `
+            <div style="background: var(--surface); padding: 30px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; border: 2px solid gold; box-shadow: 0 10px 30px rgba(255,215,0,0.2); animation: popIn 0.4s ease;">
+                <div style="font-size: 4rem; margin-bottom: 15px;">👑</div>
+                <h2 style="color: gold; margin-bottom: 10px;">باقة التميز (Premium)</h2>
+                <p style="color: var(--text-muted); margin-bottom: 25px; line-height: 1.6;">هذه المادة ضمن الخطة المدفوعة. اشترك الآن لتحصل على جميع المواد، ميزات إضافية، وتجربة خالية من الإعلانات!</p>
+                <button onclick="document.getElementById('premium-modal').style.display='none'" style="background: gold; color: #000; font-weight: bold; border: none; padding: 12px 25px; border-radius: 12px; font-size: 1.1rem; cursor: pointer; width: 100%; margin-bottom: 10px;">ترقية الحساب الآن</button>
+                <button onclick="document.getElementById('premium-modal').style.display='none'" style="background: transparent; color: var(--text-muted); border: 1px solid var(--border); padding: 10px 20px; border-radius: 12px; cursor: pointer; width: 100%;">العودة</button>
+            </div>
+            <style>@keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }</style>
+        `;
+        document.body.appendChild(modal);
+    }
+    modal.style.display = 'flex';
 }
 
 function renderPathMap() {
