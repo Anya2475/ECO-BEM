@@ -1,6 +1,6 @@
 /* ═══ IndexedDB ═══ */
 const DB_NAME = 'eco-bem-db-v9';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORES = {
   attempts: { keyPath: 'id', autoIncrement: true, indexes: [['subject','subject']] },
   sessions: { keyPath: 'id', autoIncrement: true, indexes: [['type','type']] },

@@ -12,7 +12,7 @@ async function initAnalytics() {
     if (typeof EcoDB !== 'undefined') {
         const d = await EcoDB.getDashboard();
         totalXp = d.xp || 0;
-        currentStreak = d.streak?.current || 0;
+        currentStreak = (d.streak && d.streak.current) ? d.streak.current : 0;
         totalStudyTime = d.totalStudyTime || 0; // seconds
         
         mathPerf = d.mathPerf || 0;
