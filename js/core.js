@@ -32,7 +32,7 @@ let toastT;
 function toast(msg, type = 'info') {
   const el = document.getElementById('toast');
   if (!el) return;
-  document.getElementById('toast-text').textContent = msg;
+  document.getElementById('toast-text').innerHTML = msg;
   el.className = 'toast on' + (type === 'ok' ? ' ok' : type === 'err' ? ' err' : '');
   const icon = el.querySelector('i');
   if (icon) icon.className = 'fa-solid ' + (type === 'ok' ? 'fa-circle-check' : type === 'err' ? 'fa-circle-exclamation' : 'fa-circle-info');
