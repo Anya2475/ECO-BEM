@@ -588,7 +588,8 @@ window.loadLeaderboard = async function() {
         });
         
     // Update the bottom 'ترتيبك' section
-    const bottomRankNum = document.querySelector('#ov-rank .rank-row.me .rank-num');
+    const rankNums = document.querySelectorAll('#ov-rank .rank-row.me .rank-num');
+    const bottomRankNum = rankNums[rankNums.length - 1]; // Select the last one which is always the bottom static one
     const bottomRankName = document.getElementById('my-name-row');
     const bottomRankXp = document.getElementById('my-xp');
     
