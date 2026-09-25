@@ -95,7 +95,7 @@ const EcoDB = {
   },
   async getTotalStudyTime() {
     const s = await dbGetAll('sessions');
-    return s.filter(x => x.type === 'pomodoro' || x.type === 'lesson').reduce((sum, x) => sum + (x.duration || 0), 0);
+    return s.filter(x => x.type === 'pomodoro' || x.type === 'lesson' || x.type === 'active_study').reduce((sum, x) => sum + (x.duration || 0), 0);
   },
   async getStat(key) { const r = await dbGet('stats', key); return r ? r.value : null; },
   async setStat(key, value) { 
@@ -165,20 +165,36 @@ const EcoDB = {
     return dbAdd('moods', { mood, note, date: new Date().toISOString() });
   },
   async getDashboard() {
-    const [xp, streak, totalAttempts, totalStudyTime, achievements] = await Promise.all([
+    const [xp, streak, totalAttempts, totalStudyTime, achievements, attempts] = await Promise.all([
       this.getStat('xp'), this.getStreak(), dbCount('attempts'),
-      this.getTotalStudyTime(), this.getAchievements()
+      this.getTotalStudyTime(), this.getAchievements(), dbGetAll('attempts')
     ]);
     const level = Math.floor((xp || 0) / 100) + 1;
     const nextLevelXP = level * 100;
     const prevLevelXP = (level - 1) * 100;
     const levelProgress = Math.round(((xp || 0) - prevLevelXP) / (nextLevelXP - prevLevelXP) * 100);
+    
+    // Calculate real accuracies
+    const getAvg = (subj) => {
+        const subjAttempts = attempts.filter(a => a.subject === subj);
+        if (subjAttempts.length === 0) return 0;
+        return Math.round(subjAttempts.reduce((sum, a) => sum + (a.percent || 0), 0) / subjAttempts.length);
+    };
+    
+    const mathPerf = getAvg('math');
+    const arabicPerf = getAvg('ar');
+    const sciencePerf = getAvg('science');
+    const globalAccuracy = attempts.length > 0 
+        ? Math.round(attempts.reduce((sum, a) => sum + (a.percent || 0), 0) / attempts.length) 
+        : 0;
+
     return {
       xp: xp || 0, level, levelProgress, nextLevelXP, streak,
       totalAttempts, totalStudyTime,
       totalStudyHours: Math.round(totalStudyTime / 3600 * 10) / 10,
       achievements: achievements.length,
-      recentAchievements: achievements.slice(-3).reverse()
+      recentAchievements: achievements.slice(-3).reverse(),
+      mathPerf, arabicPerf, sciencePerf, globalAccuracy
     };
   }
 };

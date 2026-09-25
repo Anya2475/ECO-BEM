@@ -5,14 +5,11 @@ async function renderDashboard() {
     const box = document.getElementById('dashboard-content');
     if (!box) return;
 
-    // Simulate Subject Performance for beautiful visual (based on seed from XP but tied to real user progress)
-    const randomSeed = (d.xp * 7 + 13) % 100;
-    const mathPerf = Math.min(100, Math.max(30, Math.floor(d.levelProgress * 0.8) + (randomSeed % 20)));
-    const arabicPerf = Math.min(100, Math.max(40, Math.floor(d.levelProgress * 0.9) + ((randomSeed * 2) % 15)));
-    const sciencePerf = Math.min(100, Math.max(35, Math.floor(d.levelProgress * 0.85) + ((randomSeed * 3) % 25)));
-    
-    // Calculate global accuracy (average)
-    const globalAccuracy = Math.floor((mathPerf + arabicPerf + sciencePerf) / 3);
+    // Use real subject performance from db
+    const mathPerf = d.mathPerf || 0;
+    const arabicPerf = d.arabicPerf || 0;
+    const sciencePerf = d.sciencePerf || 0;
+    const globalAccuracy = d.globalAccuracy || 0;
 
     // Heatmap / Consistency (Simulated Visual but utilizing real streak)
     let heatmapHtml = '';

@@ -7,28 +7,27 @@ async function initAnalytics() {
     let currentStreak = 0;
     let totalStudyTime = 0;
     
+    let mathPerf = 0, arabicPerf = 0, sciencePerf = 0, globalAccuracy = 0;
+    
     if (typeof EcoDB !== 'undefined') {
-        totalXp = (await EcoDB.getStat('xp')) || 0;
-        currentStreak = (await EcoDB.getStat('streak')) || 0;
-        totalStudyTime = (await EcoDB.getTotalStudyTime()) || 0; // minutes
+        const d = await EcoDB.getDashboard();
+        totalXp = d.xp || 0;
+        currentStreak = d.streak?.current || 0;
+        totalStudyTime = d.totalStudyTime || 0; // seconds
+        
+        mathPerf = d.mathPerf || 0;
+        arabicPerf = d.arabicPerf || 0;
+        sciencePerf = d.sciencePerf || 0;
+        globalAccuracy = d.globalAccuracy || 0;
     } else {
         totalXp = window.userXP || 0;
     }
 
-    // Format study time
-    let studyHours = Math.floor(totalStudyTime / 60);
-    let studyMinutes = totalStudyTime % 60;
+    // Format study time (totalStudyTime is in seconds)
+    let studyHours = Math.floor(totalStudyTime / 3600);
+    let studyMinutes = Math.floor((totalStudyTime % 3600) / 60);
     let timeString = `${studyHours} ساعة و ${studyMinutes} دقيقة`;
     if (totalStudyTime === 0) timeString = "0 دقيقة";
-
-    // Simulate Subject Performance for beautiful visual (based on seed from XP)
-    const randomSeed = (totalXp * 7 + 13) % 100;
-    const mathPerf = Math.min(100, Math.max(30, 60 + (randomSeed % 30)));
-    const arabicPerf = Math.min(100, Math.max(40, 70 + ((randomSeed * 2) % 25)));
-    const sciencePerf = Math.min(100, Math.max(35, 55 + ((randomSeed * 3) % 35)));
-    
-    // Calculate global accuracy (average)
-    const globalAccuracy = Math.floor((mathPerf + arabicPerf + sciencePerf) / 3);
 
     let html = `
     <div style="padding: 20px;">
