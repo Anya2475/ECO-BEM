@@ -34,8 +34,9 @@ async function initDb() {
       )
     `);
     
-    // Add coins column if it doesn't exist
+    // Add coins and hearts columns if they don't exist
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS coins INTEGER DEFAULT 0');
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS hearts INTEGER DEFAULT 5');
     // Add store columns if they don't exist
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS active_border VARCHAR(100) DEFAULT \'\';');
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS inventory JSONB DEFAULT \'{}\'::jsonb;');

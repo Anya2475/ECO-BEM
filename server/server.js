@@ -282,7 +282,7 @@ app.post('/api/leaderboard/update', async (req, res) => {
 });// Get Current User Data
 app.get('/api/user/me', authenticateToken, async (req, res) => {
     try {
-        const result = await db.query('SELECT id, name, email, xp, coins, rank, streak, avatar_url, dream_goal, plan_type, active_border, inventory FROM users WHERE id = $1', [req.user.id]);
+        const result = await db.query('SELECT id, name, email, xp, coins, hearts, rank, streak, avatar_url, dream_goal, plan_type, active_border, inventory FROM users WHERE id = $1', [req.user.id]);
         if (result.rows.length === 0) return res.sendStatus(404);
         res.json(result.rows[0]);
     } catch(err) {
@@ -293,7 +293,7 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
 // Update User Data
 app.post('/api/user/update', authenticateToken, async (req, res) => {
     try {
-        const { xp, coins, avatar_url, dream_goal, streak, plan_type, active_border, inventory } = req.body;
+        const { xp, coins, hearts, avatar_url, dream_goal, streak, plan_type, active_border, inventory } = req.body;
         
         // Dynamic update query
         const updates = [];
@@ -302,6 +302,7 @@ app.post('/api/user/update', authenticateToken, async (req, res) => {
         
         if (xp !== undefined) { updates.push(`xp = $${i++}`); values.push(xp); }
         if (coins !== undefined) { updates.push(`coins = $${i++}`); values.push(coins); }
+        if (hearts !== undefined) { updates.push(`hearts = $${i++}`); values.push(hearts); }
         if (avatar_url !== undefined) { updates.push(`avatar_url = $${i++}`); values.push(avatar_url); }
         if (dream_goal !== undefined) { updates.push(`dream_goal = $${i++}`); values.push(dream_goal); }
         if (streak !== undefined) { updates.push(`streak = $${i++}`); values.push(streak); }

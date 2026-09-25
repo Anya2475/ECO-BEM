@@ -207,6 +207,7 @@ window.initHearts = function() {
                 hearts = Math.min(5, hearts + heartsToAdd);
                 localStorage.setItem('eco_user_hearts', hearts);
                 localStorage.setItem('eco_hearts_last_refill', now);
+                if (typeof window.saveToDB === 'function') window.saveToDB({ hearts: hearts });
             }
         }
     }
@@ -218,6 +219,7 @@ window.useHeart = function() {
     if (window.userHearts > 0) {
         window.userHearts--;
         localStorage.setItem('eco_user_hearts', window.userHearts);
+        if (typeof window.saveToDB === 'function') window.saveToDB({ hearts: window.userHearts });
         if (window.userHearts === 4) {
             localStorage.setItem('eco_hearts_last_refill', Date.now());
         }
@@ -231,6 +233,7 @@ window.refillHearts = function(amount = 5) {
     if (window.userHearts === '∞') return;
     window.userHearts = Math.min(5, window.userHearts + amount);
     localStorage.setItem('eco_user_hearts', window.userHearts);
+    if (typeof window.saveToDB === 'function') window.saveToDB({ hearts: window.userHearts });
     if (window.userHearts === 5) {
         localStorage.removeItem('eco_hearts_last_refill');
     }

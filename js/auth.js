@@ -237,6 +237,14 @@ window.syncUserData = async function() {
       if (typeof EcoDB !== 'undefined' && EcoDB.setStat) {
         EcoDB.setStat('xp', user.xp || 0);
         EcoDB.setStat('streak', user.streak || 0);
+        EcoDB.setStat('coins', user.coins || 0);
+      }
+      
+      // Force overwrite local hearts
+      if (user.hearts !== undefined && user.hearts !== null) {
+          window.userHearts = user.hearts;
+          localStorage.setItem('eco_user_hearts', user.hearts);
+          if (typeof updateHeartsUI === 'function') updateHeartsUI();
       }
       
       // Force overwrite eco-mvs.js Smart Teacher XP
