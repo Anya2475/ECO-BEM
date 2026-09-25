@@ -127,6 +127,9 @@
     <div class="drawer-item" onclick="openOverlay('podcast');toggleDrawer(false)">
       <i class="fa-solid fa-podcast" style="color:#a855f7"></i><span>البودكاست 🎙️</span>
     </div>
+    <div class="drawer-item" onclick="openOverlay('essay');toggleDrawer(false)">
+      <i class="fa-solid fa-pen-nib" style="color:#38bdf8"></i><span>المصحح الذكي للوضعيات ✍️</span>
+    </div>
     <div class="drawer-item" onclick="openOverlay('rank');toggleDrawer(false)">
       <i class="fa-solid fa-trophy" style="color:#a4d466"></i><span>الأبطال</span>
     </div>
@@ -984,6 +987,85 @@
 </div>
   
   <!-- AI Teacher -->
+<!-- ═══════════════ AI ESSAY GRADER OVERLAY ═══════════════ -->
+<div class="overlay" id="ov-essay">
+  <div class="overlay-head">
+    <button class="back" onclick="closeOverlay('essay')">
+      <i class="fa-solid fa-arrow-right"></i>
+    </button>
+    <h2><i class="fa-solid fa-pen-nib" style="color:#38bdf8"></i> المصحح الذكي ✍️</h2>
+  </div>
+  <div class="overlay-body" style="padding-bottom:120px;">
+    
+    <!-- Step 1: Select Subject and Topic -->
+    <div id="essay-setup" style="display: flex; flex-direction: column; gap: 15px; padding: 15px;">
+      <div style="background: var(--surface); padding: 15px; border-radius: var(--r-md); border: 1px solid var(--border);">
+        <h3 style="margin-bottom: 10px; font-size: 1rem;">1. اختر المادة</h3>
+        <select id="essay-subject" onchange="window.updateEssayTopics()" style="width: 100%; padding: 12px; border-radius: var(--r-sm); background: var(--bg); color: var(--text); border: 1px solid var(--border);">
+          <option value="ar">اللغة العربية</option>
+          <option value="fr">اللغة الفرنسية (Français)</option>
+          <option value="en">اللغة الإنجليزية (English)</option>
+        </select>
+      </div>
+      
+      <div style="background: var(--surface); padding: 15px; border-radius: var(--r-md); border: 1px solid var(--border);">
+        <h3 style="margin-bottom: 10px; font-size: 1rem;">2. اختر الموضوع (السند والتعليمة)</h3>
+        <select id="essay-topic" onchange="window.updateEssayPrompt()" style="width: 100%; padding: 12px; border-radius: var(--r-sm); background: var(--bg); color: var(--text); border: 1px solid var(--border);">
+          <!-- Populated by JS -->
+        </select>
+        <div id="essay-prompt-text" style="margin-top: 15px; padding: 15px; background: rgba(56,189,248,0.1); border-right: 4px solid #38bdf8; border-radius: var(--r-sm); font-size: 0.9rem; line-height: 1.6; color: var(--text-muted);">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="window.startEssayWriting()" style="margin-top: 10px;">بدء الكتابة <i class="fa-solid fa-feather"></i></button>
+    </div>
+
+    <!-- Step 2: Writing Area -->
+    <div id="essay-writing" style="display: none; flex-direction: column; height: 100%; padding: 15px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <span id="essay-writing-topic" style="font-weight: bold; color: #38bdf8; font-size: 0.9rem;"></span>
+        <span id="essay-word-count" style="font-size: 0.8rem; color: var(--text-muted); background: var(--surface); padding: 4px 8px; border-radius: 12px;">0 كلمة</span>
+      </div>
+      <textarea id="essay-textarea" placeholder="ابدأ بكتابة وضعيتك الإدماجية هنا..." oninput="window.updateEssayWordCount()" style="flex: 1; min-height: 250px; padding: 15px; border-radius: var(--r-md); background: var(--surface); color: var(--text); border: 1px solid var(--border); resize: none; font-family: inherit; font-size: 1rem; line-height: 1.6; margin-bottom: 15px; outline: none;"></textarea>
+      
+      <button id="essay-submit-btn" class="btn btn-primary" onclick="window.submitEssayForGrading()">صحّح الوضعية (استخدام الذكاء الاصطناعي) <i class="fa-solid fa-wand-magic-sparkles"></i></button>
+    </div>
+
+    <!-- Step 3: Result & Grading -->
+    <div id="essay-result" style="display: none; padding: 15px; padding-bottom: 50px;">
+      <button class="btn btn-ghost" onclick="window.resetEssayLab()" style="margin-bottom: 15px; width: 100%;">
+        <i class="fa-solid fa-arrow-rotate-right"></i> كتابة وضعية أخرى
+      </button>
+
+      <div style="text-align: center; margin-bottom: 25px;">
+        <div style="position: relative; width: 120px; height: 120px; margin: 0 auto; display: flex; align-items: center; justify-content: center; background: conic-gradient(#10b981 var(--score-deg), var(--surface) 0deg); border-radius: 50%;" id="essay-score-circle">
+          <div style="position: absolute; width: 100px; height: 100px; background: var(--bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+            <span style="font-size: 2rem; font-weight: 900; color: #10b981;" id="essay-total-score">0</span>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">من 8</span>
+          </div>
+        </div>
+        <h3 style="margin-top: 15px;" id="essay-verdict-title">جاري التصحيح...</h3>
+      </div>
+
+      <div class="section-label">شبكة التقييم (المعايير)</div>
+      <div id="essay-criteria-list" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 25px;">
+        <!-- Populated by JS -->
+      </div>
+
+      <div class="section-label">ملاحظات عامة وتصحيحات</div>
+      <div id="essay-feedback" style="background: var(--surface); padding: 15px; border-radius: var(--r-md); border-right: 4px solid #f59e0b; font-size: 0.95rem; line-height: 1.6; margin-bottom: 15px;">
+        <!-- Populated by JS -->
+      </div>
+
+      <div id="essay-corrections" style="display: flex; flex-direction: column; gap: 10px;">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+    
+  </div>
+</div>
+
 <div class="overlay" id="ov-teacher">
   <div class="overlay-head" style="display:flex; justify-content:space-between; align-items:center;">
     <div style="display:flex; align-items:center; gap:10px;">
@@ -1176,6 +1258,7 @@
   <script src="./js/annals.js?v=1"></script>
   <script src="./js/store.js?v=2"></script>
   <script src="./js/analytics.js?v=1"></script>
+  <script src="./js/essay.js?v=1"></script>
   <script src="./js/path.js?v=1"></script>
   <script src="./js/main.js?v=1"></script>
 <script>
