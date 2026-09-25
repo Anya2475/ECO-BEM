@@ -58,7 +58,10 @@ function initStore() {
     
     try {
         const invStr = localStorage.getItem('eco_user_inventory');
-        if (invStr) userInventory = JSON.parse(invStr);
+        if (invStr) {
+            const parsed = JSON.parse(invStr);
+            if (Array.isArray(parsed)) userInventory = parsed;
+        }
         activeBorder = localStorage.getItem('eco_active_border') || '';
     } catch(e) {}
     
@@ -138,7 +141,10 @@ window.buyItem = function(itemId) {
         let userInventory = [];
         try {
             const invStr = localStorage.getItem('eco_user_inventory');
-            if (invStr) userInventory = JSON.parse(invStr);
+            if (invStr) {
+                const parsed = JSON.parse(invStr);
+                if (Array.isArray(parsed)) userInventory = parsed;
+            }
         } catch(e) {}
         
         if (!userInventory.includes(item.id)) {
