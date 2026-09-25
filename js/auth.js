@@ -483,6 +483,7 @@ window.loadLeaderboard = async function() {
     list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin"></i> جاري تحميل القائمة...</div>';
     
     let data = [];
+    let myRank = 0;
     try {
         const res = await fetch(API_URL + '/leaderboard');
         if (!res.ok) throw new Error('Failed to fetch');
@@ -585,4 +586,13 @@ window.loadLeaderboard = async function() {
             `;
             list.appendChild(div);
         });
+        
+    // Update the bottom 'ترتيبك' section
+    const bottomRankNum = document.querySelector('#ov-rank .rank-row.me .rank-num');
+    const bottomRankName = document.getElementById('my-name-row');
+    const bottomRankXp = document.getElementById('my-xp');
+    
+    if (bottomRankNum) bottomRankNum.textContent = myRank > 0 ? myRank : '+20';
+    if (bottomRankName) bottomRankName.textContent = document.getElementById('account-name')?.textContent || 'أنا';
+    if (bottomRankXp) bottomRankXp.textContent = (window.userXP || 0) + ' XP';
 };
