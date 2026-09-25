@@ -1355,3 +1355,12 @@ textarea.bento-textarea:focus { border-color: #4CAF50; }
 
 #path-subjects::-webkit-scrollbar { display: none; }
 #path-subjects { -ms-overflow-style: none; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 5px !important; }
+
+select option {
+    background-color: #0f172a;
+    color: #ffffff;
+}
+body.light select option {
+    background-color: #ffffff;
+    color: #000000;
+}
