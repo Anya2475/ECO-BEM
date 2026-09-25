@@ -18,23 +18,48 @@ const essayTopics = {
 
 window.updateEssayTopics = function() {
     const subject = document.getElementById('essay-subject').value;
-    const topicSelect = document.getElementById('essay-topic');
-    const promptText = document.getElementById('essay-prompt-text');
+    const listContainer = document.getElementById('essay-topic-list');
+    const hiddenInput = document.getElementById('essay-topic');
+    listContainer.innerHTML = '';
     
-    topicSelect.innerHTML = '';
     const topics = essayTopics[subject];
     
+    // Helper function to create a card
+    const createCard = (val, text, isCustom) => {
+        const card = document.createElement('div');
+        card.style.cssText = 'padding: 12px 15px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 10px; font-weight: 500;';
+        card.innerHTML = `<div style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--text-muted); display: flex; align-items: center; justify-content: center;" class="radio-circle"></div> ${text}`;
+        
+        card.onclick = () => {
+            // Deselect all
+            Array.from(listContainer.children).forEach(c => {
+                c.style.borderColor = 'var(--border)';
+                c.style.background = 'var(--bg)';
+                c.querySelector('.radio-circle').style.borderColor = 'var(--text-muted)';
+                c.querySelector('.radio-circle').innerHTML = '';
+            });
+            // Select this
+            card.style.borderColor = '#38bdf8';
+            card.style.background = 'rgba(56,189,248,0.05)';
+            card.querySelector('.radio-circle').style.borderColor = '#38bdf8';
+            card.querySelector('.radio-circle').innerHTML = '<div style="width: 10px; height: 10px; background: #38bdf8; border-radius: 50%;"></div>';
+            
+            hiddenInput.value = val;
+            window.updateEssayPrompt();
+        };
+        return card;
+    };
+    
     topics.forEach((t, index) => {
-        const option = document.createElement('option');
-        option.value = index;
-        option.textContent = t.title;
-        topicSelect.appendChild(option);
+        const card = createCard(index, t.title, false);
+        listContainer.appendChild(card);
     });
     
-    const customOption = document.createElement('option');
-    customOption.value = 'custom';
-    customOption.textContent = '✏️ موضوع مخصص (كتابة سند من عندك)';
-    topicSelect.appendChild(customOption);
+    const customCard = createCard('custom', '✏️ موضوع مخصص (كتابة سند من عندك)', true);
+    listContainer.appendChild(customCard);
+    
+    // Select first by default
+    if (listContainer.firstChild) listContainer.firstChild.onclick();
     
     window.updateEssayPrompt();
 };

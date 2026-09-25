@@ -1017,9 +1017,10 @@
       
       <div style="background: var(--surface); padding: 15px; border-radius: var(--r-md); border: 1px solid var(--border);">
         <h3 style="margin-bottom: 10px; font-size: 1rem;">2. اختر الموضوع (السند والتعليمة)</h3>
-        <select id="essay-topic" onchange="window.updateEssayPrompt()" style="position: relative; z-index: 9998; width: 100%; padding: 12px; border-radius: var(--r-sm); background: var(--bg); color: var(--text); border: 1px solid var(--border);">
+        <div id="essay-topic-list" style="display: flex; flex-direction: column; gap: 10px;">
           <!-- Populated by JS -->
-        </select>
+        </div>
+        <input type="hidden" id="essay-topic" value="0">
         <div id="essay-prompt-text" style="position: relative; z-index: 1; margin-top: 15px; padding: 15px; background: rgba(56,189,248,0.1); border-right: 4px solid #38bdf8; border-radius: var(--r-sm); font-size: 0.9rem; line-height: 1.6; color: var(--text-muted);">
           <!-- Populated by JS -->
         </div>
