@@ -326,6 +326,45 @@ function initPathTab() {
     try {
         renderPathSelector();
         renderPathMap();
+        
+        // Enable drag-to-scroll for desktop users
+        const slider = document.getElementById('path-subjects');
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+        
+        if (slider) {
+            slider.addEventListener('mousedown', (e) => {
+                isDown = true;
+                slider.style.cursor = 'grabbing';
+                startX = e.pageX - slider.offsetLeft;
+                scrollLeft = slider.scrollLeft;
+            });
+            slider.addEventListener('mouseleave', () => {
+                isDown = false;
+                slider.style.cursor = 'grab';
+            });
+            slider.addEventListener('mouseup', () => {
+                isDown = false;
+                slider.style.cursor = 'grab';
+            });
+            slider.addEventListener('mousemove', (e) => {
+                if (!isDown) return;
+                e.preventDefault();
+                const x = e.pageX - slider.offsetLeft;
+                const walk = (x - startX) * 2; // Scroll-fast
+                slider.scrollLeft = scrollLeft - walk;
+            });
+            
+            // Also enable wheel scrolling for convenience
+            slider.addEventListener('wheel', (e) => {
+                if (e.deltaY !== 0) {
+                    e.preventDefault();
+                    slider.scrollLeft += e.deltaY;
+                }
+            }, { passive: false });
+        }
+        
     } catch(e) {
         toast("Path Error: " + e.message, "err");
         console.error(e);
