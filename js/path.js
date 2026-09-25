@@ -193,37 +193,52 @@ function renderPathMap() {
 function handleNodeClick(subject, nodeId, isLocked) {
     if (isLocked) {
         toast('🔒 عليك إتمام المحطات السابقة أولاً!', 'err');
-        playSound('err');
+        if(typeof playSound === 'function') playSound('err');
         return;
     }
     
-    const node = ECO_PATH_NODES[subject].find(n => n.id === nodeId);
+    // Map path subjects to learningDB subjects
+    const dbMap = {
+        'math': 'math',
+        'arabic': 'ar',
+        'hisgeo': 'history'
+    };
     
-    // Simulate playing a lesson/quiz
-    toast('جاري فتح: ' + node.title, 'info');
-    playSound('ok');
+    const dbSubj = dbMap[subject];
+    const nodeIndex = nodeId - 1; // 0-indexed for array
     
-    // Auto complete simulation (For demonstration, after 2 seconds we complete it)
-    setTimeout(() => {
-        const currentProg = getPathProgress(subject);
-        if (nodeId === currentProg) {
-            setPathProgress(subject, currentProg + 1);
+    // Check if lesson actually exists in learningDB
+    if (dbSubj && typeof learningDB !== 'undefined' && learningDB[dbSubj] && learningDB[dbSubj][nodeIndex]) {
+        if(typeof playSound === 'function') playSound('ok');
+        // If it's already completed, we can still review it
+        // If it's current, opening it might complete it at the end (handled in LMS usually)
+        
+        // Let's hook into the existing LMS logic
+        if (typeof openLp === 'function') {
+            openLp(dbSubj, nodeIndex);
             
-            // Reward
-            let coins = (node.type === 'chest') ? 100 : 15;
-            let currentCoins = parseInt(localStorage.getItem('eco_user_coins_v2')) || 0;
-            localStorage.setItem('eco_user_coins_v2', currentCoins + coins);
-            
-            // Refresh DB XP theoretically
-            EcoDB.updateXP(50); 
-            
-            triggerConfetti();
-            toast(`🎉 مبروك! لقد أكملت المحطة وربحت ${coins} عملة ذهبية!`, 'ok');
-            renderPathMap(); // Re-render to show unlock animation
+            // To integrate with the path progress, we need the LMS to update the path when finished.
+            // But for now, let's just mark it completed when they click if it's the current node
+            const currentProg = getPathProgress(subject);
+            if (nodeId === currentProg) {
+                setPathProgress(subject, currentProg + 1);
+                
+                // Reward
+                const node = ECO_PATH_NODES[subject].find(n => n.id === nodeId);
+                let coins = (node && node.type === 'chest') ? 100 : 15;
+                let currentCoins = parseInt(localStorage.getItem('eco_user_coins_v2')) || 0;
+                localStorage.setItem('eco_user_coins_v2', currentCoins + coins);
+                if (typeof EcoDB !== 'undefined' && EcoDB.updateXP) EcoDB.updateXP(50);
+                triggerConfetti();
+                toast(`🎉 مبروك! تقدمت في المسار وربحت ${coins} عملة!`, 'ok');
+                renderPathMap();
+            }
         } else {
-             toast(`لقد راجعت هذا الدرس مسبقاً!`, 'info');
+            toast('حدث خطأ في النظام!', 'err');
         }
-    }, 1500);
+    } else {
+        toast('هذه المحطة قيد التطوير وستتوفر قريباً! 🚧', 'info');
+    }
 }
 
 // Utility for shading hex colors
@@ -265,6 +280,11 @@ function triggerConfetti() {
 
 // Init path when tab is shown
 function initPathTab() {
-    renderPathSelector();
-    renderPathMap();
+    try {
+        renderPathSelector();
+        renderPathMap();
+    } catch(e) {
+        toast("Path Error: " + e.message, "err");
+        console.error(e);
+    }
 }
