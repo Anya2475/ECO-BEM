@@ -1008,11 +1008,12 @@
     <div id="essay-setup" style="display: flex; flex-direction: column; gap: 15px; padding: 15px;">
       <div style="background: var(--surface); padding: 15px; border-radius: var(--r-md); border: 1px solid var(--border);">
         <h3 style="margin-bottom: 10px; font-size: 1rem;">1. اختر المادة</h3>
-        <select id="essay-subject" onchange="window.updateEssayTopics()" style="position: relative; z-index: 9999; width: 100%; padding: 12px; border-radius: var(--r-sm); background: var(--bg); color: var(--text); border: 1px solid var(--border);">
-          <option value="ar">اللغة العربية</option>
-          <option value="fr">اللغة الفرنسية (Français)</option>
-          <option value="en">اللغة الإنجليزية (English)</option>
-        </select>
+        <div id="essay-subject-tabs" style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <div class="subject-tab active" onclick="window.selectEssaySubject('ar')" style="padding: 10px 15px; border-radius: var(--r-full); border: 1px solid #38bdf8; background: rgba(56,189,248,0.1); color: #38bdf8; cursor: pointer; transition: all 0.2s; font-weight: bold;">اللغة العربية</div>
+          <div class="subject-tab" onclick="window.selectEssaySubject('fr')" style="padding: 10px 15px; border-radius: var(--r-full); border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; transition: all 0.2s;">Français</div>
+          <div class="subject-tab" onclick="window.selectEssaySubject('en')" style="padding: 10px 15px; border-radius: var(--r-full); border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; transition: all 0.2s;">English</div>
+        </div>
+        <input type="hidden" id="essay-subject" value="ar">
       </div>
       
       <div style="background: var(--surface); padding: 15px; border-radius: var(--r-md); border: 1px solid var(--border);">

@@ -16,6 +16,33 @@ const essayTopics = {
     ]
 };
 
+window.selectEssaySubject = function(sub) {
+    const hiddenInput = document.getElementById('essay-subject');
+    hiddenInput.value = sub;
+    
+    // Update tabs UI
+    const tabsContainer = document.getElementById('essay-subject-tabs');
+    if (tabsContainer) {
+        Array.from(tabsContainer.children).forEach(tab => {
+            if (tab.getAttribute('data-subject') === sub || tab.textContent.toLowerCase().includes(sub) || (sub === 'ar' && tab.textContent.includes('عربية')) || (sub === 'fr' && tab.textContent.includes('Français')) || (sub === 'en' && tab.textContent.includes('English'))) {
+                tab.classList.add('active');
+                tab.style.border = '1px solid #38bdf8';
+                tab.style.background = 'rgba(56,189,248,0.1)';
+                tab.style.color = '#38bdf8';
+                tab.style.fontWeight = 'bold';
+            } else {
+                tab.classList.remove('active');
+                tab.style.border = '1px solid var(--border)';
+                tab.style.background = 'var(--bg)';
+                tab.style.color = 'var(--text)';
+                tab.style.fontWeight = 'normal';
+            }
+        });
+    }
+    
+    window.updateEssayTopics();
+};
+
 window.updateEssayTopics = function() {
     const subject = document.getElementById('essay-subject').value;
     const listContainer = document.getElementById('essay-topic-list');
