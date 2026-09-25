@@ -488,23 +488,49 @@ window.loadLeaderboard = async function() {
         if (!res.ok) throw new Error('Failed to fetch');
         data = await res.json();
     } catch (err) {
-        // Fallback to realistic mock data if offline
+        // Smart Simulation Leaderboard Logic
         const mockNames = ['أحمد ب.', 'سارة ع.', 'محمد ق.', 'إيناس م.', 'عبدالرؤوف', 'ملاك', 'ريان', 'ياسين', 'فاطمة', 'أمينة', 'وليد'];
-        let startXP = 25000;
-        for(let i=0; i<10; i++) {
-            data.push({
-                name: mockNames[i % mockNames.length],
-                xp: startXP - (Math.floor(Math.random() * 2000)),
-                avatar_url: ''
-            });
-            startXP -= 2000;
+        
+        let simUsers = JSON.parse(localStorage.getItem('eco_sim_leaderboard'));
+        const myXp = window.userXP || 0;
+        
+        if (!simUsers) {
+            // First time setup: Generate users around the player's XP
+            simUsers = [];
+            let startXP = myXp + 500; // Someone slightly ahead
+            for(let i=0; i<10; i++) {
+                simUsers.push({
+                    id: 'sim_' + i,
+                    name: mockNames[i % mockNames.length],
+                    xp: Math.max(0, startXP - (Math.floor(Math.random() * 200))),
+                    avatar_url: ''
+                });
+                startXP -= Math.floor(Math.random() * 150) + 50;
+            }
+            localStorage.setItem('eco_sim_leaderboard', JSON.stringify(simUsers));
+        } else {
+            // Simulate progression: random users gain XP over time
+            let lastUpdate = localStorage.getItem('eco_sim_last_update') || Date.now();
+            let hoursPassed = (Date.now() - parseInt(lastUpdate)) / (1000 * 60 * 60);
+            
+            if (hoursPassed > 1) { // Only simulate if an hour has passed, or just add random XP on load
+                simUsers.forEach(u => {
+                    // Virtual users gain between 10 and 150 XP randomly
+                    if (Math.random() > 0.3) {
+                        u.xp += Math.floor(Math.random() * 140) + 10;
+                    }
+                });
+                localStorage.setItem('eco_sim_leaderboard', JSON.stringify(simUsers));
+                localStorage.setItem('eco_sim_last_update', Date.now());
+            }
         }
+        
+        data = [...simUsers];
         
         // Add current user
         const myName = document.getElementById('account-name')?.textContent || 'أنا';
-        const myXp = window.userXP || 0;
         const myAvatar = localStorage.getItem('eco_user_avatar') || '';
-        data.push({ name: myName, xp: myXp, avatar_url: myAvatar });
+        data.push({ name: myName + ' (أنت)', xp: myXp, avatar_url: myAvatar, isMe: true });
         
         // Sort
         data.sort((a, b) => b.xp - a.xp);
@@ -517,11 +543,11 @@ window.loadLeaderboard = async function() {
             if (index === 0) rowClass += ' gold';
             else if (index === 1) rowClass += ' silver';
             else if (index === 2) rowClass += ' bronze';
-            
             // Check if this is the current user
             const myName = document.getElementById('account-name')?.textContent;
-            if (myName && user.name === myName) {
+            if (user.isMe || (myName && user.name === myName)) {
                 rowClass += ' me';
+                myRank = index + 1;
             }
             
             const div = document.createElement('div');
