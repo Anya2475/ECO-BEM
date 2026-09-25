@@ -487,6 +487,15 @@ window.loadLeaderboard = async function() {
         const res = await fetch(API_URL + '/leaderboard');
         if (!res.ok) throw new Error('Failed to fetch');
         data = await res.json();
+        
+        // Identify current user in real data
+        const myName = typeof getUserName === 'function' ? getUserName() : (document.getElementById('account-name')?.textContent || 'أنا');
+        data.forEach(u => {
+            if (u.name === myName) {
+                u.isMe = true;
+                u.name = u.name + ' (أنت)';
+            }
+        });
     } catch (err) {
         // Smart Simulation Leaderboard Logic
         const mockNames = ['أحمد ب.', 'سارة ع.', 'محمد ق.', 'إيناس م.', 'عبدالرؤوف', 'ملاك', 'ريان', 'ياسين', 'فاطمة', 'أمينة', 'وليد'];

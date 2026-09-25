@@ -264,6 +264,21 @@ window.updateGlobalUI = async function() {
   const myXp = document.getElementById('my-xp');
   if (myXp) myXp.textContent = xp + ' XP';
   
+  // Sync XP to Global Leaderboard (if online)
+  try {
+      const myName = typeof getUserName === 'function' ? getUserName() : (document.getElementById('account-name')?.textContent || 'بطل BEM');
+      const myAvatar = localStorage.getItem('eco_user_avatar') || '';
+      const myBorder = localStorage.getItem('eco_active_border') || '';
+      
+      const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? 'http://localhost:3000/api' : (window.location.protocol === 'file:') ? 'https://eco-bem.vercel.app/api' : '/api';
+      
+      fetch(API_URL + '/leaderboard/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: myName, xp: xp, avatar_url: myAvatar, active_border: myBorder })
+      }).catch(e => {}); // Silent fail if offline
+  } catch(e) {}
+  
   // Update UI sections if they are active
   if (document.getElementById('ov-stats2')?.classList.contains('on')) {
       if(typeof renderAnalytics === 'function') renderAnalytics();

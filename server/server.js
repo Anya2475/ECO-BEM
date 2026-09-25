@@ -6,6 +6,19 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('./database.js');
+const { createClient } = require('redis');
+
+// Initialize Redis Client if URL is provided
+let redisClient = null;
+if (process.env.REDIS_URL || process.env.KV_REST_API_URL || process.env.STORAGE_URL) {
+    // If it's Vercel KV (REST API), we might want to use fetch, but standard Redis URL uses redis://
+    const url = process.env.REDIS_URL || process.env.STORAGE_URL;
+    if (url && url.startsWith('redis')) {
+        redisClient = createClient({ url });
+        redisClient.on('error', err => console.error('Redis Client Error', err));
+        redisClient.connect().catch(console.error);
+    }
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || 'eco_bem_super_secret_key_2026';
 
@@ -212,6 +225,30 @@ app.post('/api/auth/login', async (req, res) => {
 // Get Leaderboard Data
 app.get('/api/leaderboard', async (req, res) => {
     try {
+        if (redisClient) {
+            // Get top 20 users from Redis Sorted Set 'leaderboard_xp'
+            const topUsers = await redisClient.zRangeWithScores('leaderboard_xp', 0, 19, { REV: true });
+            if (topUsers && topUsers.length > 0) {
+                const results = [];
+                for (const u of topUsers) {
+                    try {
+                        const userData = await redisClient.hGet('user_profiles', u.value);
+                        const parsed = userData ? JSON.parse(userData) : { name: u.value, avatar_url: '', active_border: '' };
+                        results.push({
+                            name: parsed.name || u.value,
+                            xp: u.score,
+                            avatar_url: parsed.avatar_url || '',
+                            active_border: parsed.active_border || ''
+                        });
+                    } catch(e) {
+                        results.push({ name: u.value, xp: u.score, avatar_url: '', active_border: '' });
+                    }
+                }
+                return res.json(results);
+            }
+        }
+        
+        // Fallback to PostgreSQL
         const result = await db.query('SELECT name, xp, avatar_url, active_border FROM users ORDER BY xp DESC LIMIT 20');
         res.json(result.rows);
     } catch(err) {
@@ -220,7 +257,29 @@ app.get('/api/leaderboard', async (req, res) => {
     }
 });
 
-// Get Current User Data
+// Update Leaderboard Data (Public endpoint for guest users via Redis)
+app.post('/api/leaderboard/update', async (req, res) => {
+    try {
+        const { name, xp, avatar_url, active_border } = req.body;
+        if (!name || typeof xp !== 'number') {
+            return res.status(400).json({ error: 'Missing name or xp' });
+        }
+        
+        if (redisClient) {
+            // Add or update XP in sorted set
+            await redisClient.zAdd('leaderboard_xp', { score: xp, value: name });
+            // Save profile details in hash
+            const profile = { name, avatar_url: avatar_url || '', active_border: active_border || '' };
+            await redisClient.hSet('user_profiles', name, JSON.stringify(profile));
+            return res.json({ success: true, message: 'تم تحديث لوحة الصدارة بنجاح' });
+        }
+        
+        res.status(503).json({ error: 'Redis غير مفعل' });
+    } catch(err) {
+        console.error(err);
+        res.status(500).json({ error: 'حدث خطأ في تحديث البيانات' });
+    }
+});// Get Current User Data
 app.get('/api/user/me', authenticateToken, async (req, res) => {
     try {
         const result = await db.query('SELECT id, name, email, xp, coins, rank, streak, avatar_url, dream_goal, plan_type, active_border, inventory FROM users WHERE id = $1', [req.user.id]);
