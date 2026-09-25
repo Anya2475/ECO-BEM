@@ -184,7 +184,10 @@
     </div>
     <div class="tb-left">
       <button class="pill tb-streak-btn" onclick="openOverlay('account')">
-        <div style="display:flex;align-items:center;gap:6px;color:#f97316;" title="شعلة الاستمرارية">
+        <div style="display:flex;align-items:center;gap:4px;color:#ef4444; border-left:1px solid rgba(239,68,68,.3); padding-left:8px;" title="القلوب المتبقية" onclick="event.stopPropagation(); openOverlay('store');">
+          <i class="fa-solid fa-heart"></i><span style="font-weight:900;font-size:1.1rem;" id="ui-hearts">5</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;color:#f97316;" title="شعلة الاستمرارية">
           <i class="fa-solid fa-fire"></i><span style="font-weight:900;font-size:1.1rem;" id="ui-streak">0</span>
         </div>
         <div class="tb-profile-divider">

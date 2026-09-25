@@ -183,6 +183,62 @@ const EcoDB = {
   }
 };
 
+window.initHearts = function() {
+    let hearts = localStorage.getItem('eco_user_hearts');
+    let lastRefill = localStorage.getItem('eco_hearts_last_refill');
+    let isPremium = localStorage.getItem('eco_user_premium') === 'true';
+    
+    if (isPremium) {
+        window.userHearts = '∞';
+        return;
+    }
+    
+    if (!hearts) {
+        hearts = 5;
+        localStorage.setItem('eco_user_hearts', hearts);
+        localStorage.setItem('eco_hearts_last_refill', Date.now());
+    } else {
+        hearts = parseInt(hearts);
+        if (hearts < 5 && lastRefill) {
+            let now = Date.now();
+            let hoursPassed = (now - parseInt(lastRefill)) / (1000 * 60 * 60);
+            let heartsToAdd = Math.floor(hoursPassed / 4); // 1 heart every 4 hours
+            if (heartsToAdd > 0) {
+                hearts = Math.min(5, hearts + heartsToAdd);
+                localStorage.setItem('eco_user_hearts', hearts);
+                localStorage.setItem('eco_hearts_last_refill', now);
+            }
+        }
+    }
+    window.userHearts = hearts;
+};
+
+window.useHeart = function() {
+    if (window.userHearts === '∞') return true;
+    if (window.userHearts > 0) {
+        window.userHearts--;
+        localStorage.setItem('eco_user_hearts', window.userHearts);
+        if (window.userHearts === 4) {
+            localStorage.setItem('eco_hearts_last_refill', Date.now());
+        }
+        window.updateGlobalUI();
+        return true;
+    }
+    return false;
+};
+
+window.refillHearts = function(amount = 5) {
+    if (window.userHearts === '∞') return;
+    window.userHearts = Math.min(5, window.userHearts + amount);
+    localStorage.setItem('eco_user_hearts', window.userHearts);
+    if (window.userHearts === 5) {
+        localStorage.removeItem('eco_hearts_last_refill');
+    }
+    window.updateGlobalUI();
+};
+
+window.initHearts();
+
 window.updateGlobalUI = async function() {
   const xp = (await EcoDB.getStat('xp')) || 0;
   const streakData = await EcoDB.getStreak();
@@ -191,10 +247,14 @@ window.updateGlobalUI = async function() {
   
   window.userXP = xp;
   window.userCoins = coins;
+  window.initHearts();
 
   const uiCoins = document.getElementById('ui-coins');
   if (uiCoins) uiCoins.textContent = coins;
   
+  const uiHearts = document.getElementById('ui-hearts');
+  if (uiHearts) uiHearts.innerHTML = window.userHearts === '∞' ? '<i class="fa-solid fa-infinity" style="font-size:1.1rem; margin-top:3px;"></i>' : window.userHearts;
+
   const uiStreak = document.getElementById('ui-streak');
   if (uiStreak) uiStreak.textContent = streak;
   

@@ -232,6 +232,14 @@ function handleNodeClick(subject, nodeId, isLocked) {
         return;
     }
     
+    // Check Hearts!
+    if (window.userHearts !== '∞' && window.userHearts <= 0) {
+        toast('💔 ليس لديك قلوب كافية! انتظر حتى تمتلئ أو قم بشرائها من المتجر.', 'err');
+        if(typeof playSound === 'function') playSound('err');
+        setTimeout(() => openOverlay('store'), 1500); // Auto-open store after a short delay
+        return;
+    }
+    
     // Map path subjects to learningDB subjects
     const dbMap = {
         'math': 'math',

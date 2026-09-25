@@ -1,5 +1,14 @@
 const STORE_ITEMS = [
     {
+        id: 'refill_hearts',
+        name: 'شراء قلوب ❤️',
+        desc: 'يستعيد كل قلوبك (5/5) لتواصل التعلم فوراً.',
+        price: 50,
+        icon: 'fa-heart',
+        color: '#ef4444',
+        type: 'consumable'
+    },
+    {
         id: 'border_bronze',
         name: 'إطار برونزي',
         desc: 'يحيط صورتك الرمزية بإطار برونزي في قائمة الأبطال.',
@@ -109,24 +118,40 @@ window.buyItem = function(itemId) {
     document.getElementById('ui-coins').textContent = window.userCoins;
     document.getElementById('store-ui-coins').textContent = window.userCoins;
     
-    // Add to inventory
-    let userInventory = [];
-    try {
-        const invStr = localStorage.getItem('eco_user_inventory');
-        if (invStr) userInventory = JSON.parse(invStr);
-    } catch(e) {}
-    
-    if (!userInventory.includes(item.id)) {
-        userInventory.push(item.id);
-        localStorage.setItem('eco_user_inventory', JSON.stringify(userInventory));
+    // Handle consumable items
+    if (item.type === 'consumable') {
+        if (item.id === 'refill_hearts') {
+            if (typeof window.refillHearts === 'function') {
+                if (window.userHearts === '∞' || window.userHearts >= 5) {
+                    if(typeof toast === 'function') toast('قلوبك ممتلئة بالفعل!', 'info');
+                    // refund coins
+                    window.userCoins += item.price;
+                    document.getElementById('ui-coins').textContent = window.userCoins;
+                    document.getElementById('store-ui-coins').textContent = window.userCoins;
+                    return;
+                }
+                window.refillHearts(5);
+            }
+        }
+    } else {
+        // Add to inventory
+        let userInventory = [];
+        try {
+            const invStr = localStorage.getItem('eco_user_inventory');
+            if (invStr) userInventory = JSON.parse(invStr);
+        } catch(e) {}
+        
+        if (!userInventory.includes(item.id)) {
+            userInventory.push(item.id);
+            localStorage.setItem('eco_user_inventory', JSON.stringify(userInventory));
+        }
+        if(typeof window.saveToDB === 'function') {
+            window.saveToDB({ coins: window.userCoins, inventory: userInventory });
+        }
     }
     
     if (typeof EcoDB !== 'undefined' && EcoDB.setStat) {
         EcoDB.setStat('coins', window.userCoins);
-    }
-    
-    if(typeof window.saveToDB === 'function') {
-        window.saveToDB({ coins: window.userCoins, inventory: userInventory });
     }
     
     if(typeof toast === 'function') toast(`🎉 مبروك! لقد اشتريت ${item.name}`, 'ok');

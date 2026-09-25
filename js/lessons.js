@@ -138,6 +138,9 @@ async function answerLp(btn, correct, ex) {
   } else {
     Sound.err(); btn.classList.add('wrong'); lp.mistakes++;
     if (fb) { fb.classList.add('ko'); fb.innerHTML = `❌ ${ex || 'راجع القاعدة.'}`; }
+    if (typeof window.useHeart === 'function') {
+        window.useHeart();
+    }
   }
   const nextBtn = document.getElementById('lp-next');
   if (nextBtn) nextBtn.classList.add('on');
