@@ -23,6 +23,97 @@
 <link rel="stylesheet" href="./style.CSS?v=19"><script>window.onerror=function(m,u,l,c,e){if(m.indexOf('Script error') > -1) return;var d=document.createElement('div');d.style.cssText='position:fixed;top:0;left:0;width:100%;background:red;color:white;z-index:9999999999;padding:20px;font-size:20px;';d.innerHTML='<b>ERROR:</b> '+m+'<br>Line: '+l+'<br>Col: '+c;if(document.body)document.body.appendChild(d);else window.addEventListener('load',function(){document.body.appendChild(d);});};</script><script defer src="./lessonsData.js"></script>
 <script defer src="./bankData_v7.js"></script>
 <script defer src="./podcastData.js?v=3"></script>
+    <style>
+        /* Fennec Mascot Styles */
+        .fennec-container {
+            position: fixed;
+            bottom: 85px; 
+            left: 15px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            pointer-events: none;
+        }
+        
+        .fennec-bubble {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 2px solid #10b981;
+            color: #064e3b;
+            padding: 12px 18px;
+            border-radius: 16px 16px 16px 0;
+            font-size: 0.95rem;
+            font-weight: 700;
+            max-width: 200px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            margin-bottom: 10px;
+            opacity: 0;
+            transform: translateY(10px) scale(0.9);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: auto;
+            display: none; /* hidden initially */
+        }
+        
+        .fennec-bubble.show {
+            display: block;
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+        
+        .fennec-avatar-wrapper {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 6px 15px rgba(16, 185, 129, 0.35);
+            border: 3px solid #10b981;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            cursor: pointer;
+            pointer-events: auto;
+            animation: floatMascot 4s ease-in-out infinite;
+            position: relative;
+            transition: transform 0.2s;
+        }
+        
+        .fennec-avatar-wrapper:active {
+            transform: scale(0.9);
+        }
+        
+        .fennec-avatar-wrapper img {
+            width: 140%;
+            height: 140%;
+            object-fit: cover;
+            object-position: center 25%;
+        }
+        
+        @keyframes floatMascot {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+            100% { transform: translateY(0); }
+        }
+        
+        .fennec-badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 16px;
+            height: 16px;
+            background: #ef4444;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            animation: pulseBadge 2s infinite;
+        }
+        
+        @keyframes pulseBadge {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+    </style>
 </head>
 <body>
 
@@ -1281,5 +1372,77 @@
     });
   }
 </script>
+<!-- Fennec Mascot -->
+<div class="fennec-container">
+    <div class="fennec-bubble" id="fennec-bubble">مرحباً يا بطل! الفنك هنا لمساعدتك.</div>
+    <div class="fennec-avatar-wrapper" onclick="pokeFennec()">
+        <img src="img/fennec.jpg" alt="Mascot الفنك" />
+        <div class="fennec-badge" id="fennec-badge"></div>
+    </div>
+</div>
+
+<script>
+    const fennecQuotes = [
+        "هدف في الدقيقة 90! إجابة رائعة!",
+        "أذناي تخبرني أنك تدرس بجد اليوم!",
+        "الفنك لا يستسلم أبداً، وأنت كذلك!",
+        "تذكر أن تشرب بعض الماء، المراجعة تحتاج طاقة!",
+        "شهادة الـ BEM تنتظرك، أنت لها يا محارب!",
+        "الأفناك تحب التحدي.. هيا نراجع المزيد!",
+        "أنا هنا لمساعدتك دائماً يا بطل!"
+    ];
+
+    let bubbleTimeout;
+    function pokeFennec() {
+        const bubble = document.getElementById('fennec-bubble');
+        const badge = document.getElementById('fennec-badge');
+        
+        // Hide badge on first click
+        if (badge) badge.style.display = 'none';
+        
+        // Toggle if already showing
+        if (bubble.classList.contains('show')) {
+            bubble.classList.remove('show');
+            setTimeout(() => { bubble.style.display = 'none'; }, 300);
+            clearTimeout(bubbleTimeout);
+            return;
+        }
+        
+        // Pick a random quote
+        const quote = fennecQuotes[Math.floor(Math.random() * fennecQuotes.length)];
+        bubble.innerText = quote;
+        
+        // Show bubble
+        bubble.style.display = 'block';
+        setTimeout(() => { bubble.classList.add('show'); }, 10);
+        
+        // Play sound
+        if (typeof Sound !== 'undefined' && Sound.tap) Sound.tap();
+        
+        // Hide after 4 seconds
+        clearTimeout(bubbleTimeout);
+        bubbleTimeout = setTimeout(() => {
+            bubble.classList.remove('show');
+            setTimeout(() => { bubble.style.display = 'none'; }, 300);
+        }, 4000);
+    }
+    
+    // Initial popup suggestion after a while
+    setTimeout(() => {
+        const badge = document.getElementById('fennec-badge');
+        if (badge && badge.style.display !== 'none') {
+            const bubble = document.getElementById('fennec-bubble');
+            bubble.innerText = "انقر عليّ لتسمع ما أقول!";
+            bubble.style.display = 'block';
+            setTimeout(() => { bubble.classList.add('show'); }, 10);
+            
+            setTimeout(() => {
+                bubble.classList.remove('show');
+                setTimeout(() => { bubble.style.display = 'none'; }, 300);
+            }, 3000);
+        }
+    }, 15000);
+</script>
+
 </body>
 </html>
